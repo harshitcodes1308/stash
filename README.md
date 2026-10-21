@@ -4,7 +4,7 @@ Stash is a local-first native macOS floating shelf for temporarily collecting fi
 
 ## Features
 
-- Floating, independently movable shelves with menu-bar access and `Control–Option–Space`.
+- Floating Liquid Glass shelves with adaptive file tiles, menu-bar access, and `Control–Option–Space`.
 - Finder drag-in and drag-out, text and URL items, pinning, and pinned-shelf restoration.
 - Smart actions for image conversion/resizing, ZIP creation, safe batch rename, and PDF merging.
 - Durable generated files stored locally in `~/Library/Application Support/Stash/Generated Outputs`.
@@ -19,7 +19,7 @@ Stash targets macOS 13 or later. Build and launch locally:
 open -n build/Stash.app
 ```
 
-The packaged beta is `build/Stash-0.1.0.zip`. This local build is ad-hoc signed, not Developer ID signed or notarized.
+The packaged beta is `build/Stash-0.1.1.zip`. This local build is ad-hoc signed, not Developer ID signed or notarized.
 
 ## File safety and privacy
 

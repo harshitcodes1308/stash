@@ -20,7 +20,11 @@ These checks require a real macOS GUI session.
 
 ## UI and safety
 
-1. Test light/dark mode, high contrast, Reduce Motion, long names, a narrow shelf, and many items.
-2. Navigate controls with Tab, activate default actions with Return, dismiss sheets with Escape, and verify VoiceOver labels for pin, dismiss, remove, and actions.
-3. Confirm unavailable items are visibly marked; no action silently overwrites or deletes a source file.
-4. Test on each connected display and verify shelves avoid the Dock/menu bar after restore.
+1. Test the rounded glass shell over bright and dark wallpapers in light/dark mode and Increased Contrast; confirm text and borders remain readable.
+2. Enable Reduce Motion and confirm tile hover, selection, insertion, and drag targeting do not scale or spring.
+3. Test long and Unicode filenames, duplicate visible names, a narrow shelf, manual resizing, and 20+ items; confirm the tile grid adapts and scrolls.
+4. Drag a supported item across the shell and transparent corners; confirm the target glow only occurs over the interactive rounded shelf and clears on exit.
+5. Verify hover and selection remain visually distinct, full filenames appear as tooltips, and missing items remain clear.
+6. Navigate controls with Tab, activate default actions with Return, dismiss sheets with Escape, and verify VoiceOver labels for pin, dismiss, remove, tiles, and actions.
+7. Confirm unavailable items are visibly marked; no action silently overwrites or deletes a source file.
+8. Test on each connected display and verify shelves avoid the Dock/menu bar after restore.

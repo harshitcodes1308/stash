@@ -4,54 +4,33 @@ import UniformTypeIdentifiers
 
 struct ShelfView: View {
     @ObservedObject var controller: ShelfWindowController
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var isTargeted = false
+    @State private var isShelfHovered = false
     @State private var selectedIDs: Set<UUID> = []
     @State private var activeAction: SmartActionID?
+    private let columns = [GridItem(.adaptive(minimum: 94, maximum: 128), spacing: 10)]
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                TextField("Shelf name", text: $controller.shelf.title)
-                    .textFieldStyle(.plain).font(.headline)
-                    .accessibilityLabel("Shelf name")
-                    .onSubmit { controller.persistIfNeeded() }
-                Spacer()
-                Text("\(controller.shelf.items.count)").foregroundStyle(.secondary).accessibilityLabel("\(controller.shelf.items.count) items")
-                Button { controller.togglePin() } label: { Image(systemName: controller.shelf.isPinned ? "pin.fill" : "pin") }
-                    .help(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf").accessibilityLabel(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
-                Button { controller.dismiss() } label: { Image(systemName: "xmark.circle.fill") }.help("Dismiss shelf")
-                    .accessibilityLabel("Dismiss shelf")
-            }
-
-            if controller.shelf.items.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "tray.and.arrow.down").font(.largeTitle)
-                    Text("Drop files, text, or links here").font(.headline)
-                    Text("Items remain references; Stash does not copy your files.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                }.frame(maxWidth: .infinity, minHeight: 130)
-            } else {
-                ScrollView { LazyVStack(spacing: 6) { ForEach(controller.shelf.items) { item in ShelfItemRow(item: item, isSelected: selectedIDs.contains(item.id), select: { toggleSelection(item.id) }, remove: { selectedIDs.remove(item.id); controller.remove(item) }) } } }
-                    .frame(maxHeight: 260)
-            }
-
-            HStack {
-                Button("Clear") { controller.clear() }.disabled(controller.shelf.items.isEmpty)
-                Spacer()
-                Menu("Actions") {
-                    let actions = controller.availableActions(for: selectedIDs)
-                    if actions.isEmpty { Text(selectedIDs.isEmpty ? "Select image files first" : "No actions for this selection") }
-                    else { ForEach(actions) { action in Button(action.title) { activeAction = action.id } } }
-                }.disabled(controller.isPerformingAction || controller.shelf.items.isEmpty).accessibilityLabel("Actions for selected items")
-                Text("⌃⌥Space creates a shelf").font(.caption).foregroundStyle(.secondary)
-            }
-            if controller.isPerformingAction { ProgressView("Working…").controlSize(.small) }
-            if let message = controller.actionMessage { Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(3).accessibilityLabel("Action status: \(message)") }
+        VStack(spacing: 13) {
+            shelfHeader
+            shelfContent
+            shelfFooter
         }
-        .padding(14).frame(width: 330)
-        .background(.regularMaterial)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(isTargeted ? Color.accentColor : .white.opacity(0.12), lineWidth: isTargeted ? 3 : 1))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(16)
+        .frame(minWidth: 340, idealWidth: 420, maxWidth: .infinity, minHeight: 250, idealHeight: 360, maxHeight: .infinity)
+        .background(glassShell)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .scaleEffect(isTargeted && !reduceMotion ? 1.008 : 1)
+        .shadow(color: .black.opacity(isTargeted ? 0.28 : 0.20), radius: isTargeted ? 30 : 22, x: 0, y: isTargeted ? 14 : 10)
+        .padding(12)
+        .onHover { isShelfHovered = $0 }
         .onDrop(of: [.fileURL, .url, .utf8PlainText], isTargeted: $isTargeted, perform: controller.acceptDrop)
+        .animation(reduceMotion ? nil : StashMotion.shelf, value: isTargeted)
+        .animation(reduceMotion ? nil : StashMotion.insertion, value: controller.shelf.items.map(\.id))
+        .ignoresSafeArea()
         .sheet(item: $activeAction) { action in
             if action == .createZip { ArchiveActionSheet(selectedIDs: selectedIDs, controller: controller, onSubmitted: { selectedIDs.removeAll() }) }
             else if action == .batchRename { BatchRenameSheet(selectedIDs: selectedIDs, controller: controller, onSubmitted: { selectedIDs.removeAll() }) }
@@ -60,7 +39,98 @@ struct ShelfView: View {
         }
     }
 
-    private func toggleSelection(_ id: UUID) { if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) } }
+    private var shelfHeader: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "tray.full.fill").foregroundStyle(.indigo).imageScale(.large).accessibilityHidden(true)
+            TextField("Shelf name", text: $controller.shelf.title)
+                .textFieldStyle(.plain).font(.headline.weight(.semibold)).accessibilityLabel("Shelf name")
+                .onSubmit { controller.persistIfNeeded() }
+            Text("\(controller.shelf.items.count)")
+                .font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 4).background(.thinMaterial, in: Capsule())
+                .accessibilityLabel("\(controller.shelf.items.count) items")
+            Menu {
+                let actions = controller.availableActions(for: selectedIDs)
+                if actions.isEmpty { Text(selectedIDs.isEmpty ? "Select files to see actions" : "No actions for this selection") }
+                else { ForEach(actions) { action in Button(action.title) { activeAction = action.id } } }
+            } label: { Image(systemName: "sparkles") }
+                .menuStyle(.borderlessButton).fixedSize().disabled(controller.isPerformingAction || controller.shelf.items.isEmpty)
+                .help("Smart Actions").accessibilityLabel("Actions for selected items")
+            Button { controller.togglePin() } label: { Image(systemName: controller.shelf.isPinned ? "pin.fill" : "pin") }
+                .buttonStyle(GlassIconButtonStyle(emphasized: controller.shelf.isPinned)).help(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
+                .accessibilityLabel(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
+            Button { controller.dismiss() } label: { Image(systemName: "xmark") }
+                .buttonStyle(GlassIconButtonStyle()).help("Dismiss shelf").accessibilityLabel("Dismiss shelf")
+        }
+    }
+
+    @ViewBuilder private var shelfContent: some View {
+        if controller.shelf.items.isEmpty {
+            VStack(spacing: 9) {
+                Image(systemName: isTargeted ? "arrow.down.circle.fill" : "square.and.arrow.down")
+                    .font(.system(size: 30, weight: .light)).foregroundStyle(isTargeted ? Color.indigo : Color.secondary)
+                Text(isTargeted ? "Release to stash" : "Drop files here").font(.headline)
+                Text("Files, folders, text or links").font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 145)
+            .background(Color.primary.opacity(isTargeted ? 0.07 : 0.035), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    ForEach(controller.shelf.items) { item in
+                        ShelfItemTile(item: item, isSelected: selectedIDs.contains(item.id), select: { toggleSelection(item.id) }, remove: { selectedIDs.remove(item.id); controller.remove(item) })
+                            .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    }
+                }.padding(2)
+            }
+            .scrollIndicators(.automatic)
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private var shelfFooter: some View {
+        VStack(spacing: 7) {
+            if controller.isPerformingAction { ProgressView("Working…").controlSize(.small).frame(maxWidth: .infinity, alignment: .leading) }
+            if let message = controller.actionMessage { Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading).accessibilityLabel("Action status: \(message)") }
+            HStack {
+                Button { selectedIDs.removeAll(); controller.clear() } label: { Label("Clear", systemImage: "trash") }
+                    .buttonStyle(.borderless).disabled(controller.shelf.items.isEmpty)
+                Spacer()
+                if !selectedIDs.isEmpty { Text("\(selectedIDs.count) selected").font(.caption.weight(.medium)).foregroundStyle(.indigo) }
+                Text("⌃⌥Space").font(.caption.monospaced()).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var glassShell: some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(LinearGradient(colors: [.white.opacity(isShelfHovered ? 0.13 : 0.08), .clear, .indigo.opacity(isTargeted ? 0.12 : 0.025)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(LinearGradient(colors: [isTargeted ? .indigo.opacity(0.9) : .white.opacity(0.48), .white.opacity(0.08), isTargeted ? .indigo.opacity(0.55) : .black.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: isTargeted || differentiateWithoutColor ? 2 : 1))
+    }
+
+    private func toggleSelection(_ id: UUID) {
+        if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) }
+    }
+}
+
+private enum StashMotion {
+    static let hover = Animation.spring(response: 0.18, dampingFraction: 0.86)
+    static let selection = Animation.spring(response: 0.22, dampingFraction: 0.84)
+    static let insertion = Animation.spring(response: 0.28, dampingFraction: 0.82)
+    static let shelf = Animation.spring(response: 0.30, dampingFraction: 0.88)
+}
+
+private struct GlassIconButtonStyle: ButtonStyle {
+    var emphasized = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 28, height: 28)
+            .foregroundStyle(emphasized ? Color.indigo : Color.primary.opacity(0.82))
+            .background(Color.primary.opacity(configuration.isPressed ? 0.15 : 0.07), in: Circle())
+            .scaleEffect(!reduceMotion && configuration.isPressed ? 0.94 : 1)
+    }
 }
 
 private struct PDFMergeSheet: View {
@@ -98,13 +168,14 @@ private struct PDFMergeSheet: View {
                     }
                 }
             }.frame(height: 190)
-            TextField("Output filename", text: $outputName).textFieldStyle(.roundedBorder)
+            Text("Output filename").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TextField("Merged Document", text: $outputName).textFieldStyle(.roundedBorder)
             Text(".pdf is added automatically. Output uses durable Stash storage before any export.").font(.caption).foregroundStyle(.secondary)
             Picker("Result", selection: $destination) { ForEach(OutputDestination.allCases) { Text($0.title).tag($0) } }
             if !valid, !inputs.isEmpty { Text(inputs.first(where: { !$0.isValid })?.validationMessage ?? "Enter an output name and select at least two valid PDFs.").font(.caption).foregroundStyle(.red) }
             HStack { Spacer(); Button("Cancel") { dismiss() }; Button("Merge PDFs") { controller.performPDFMerge(orderedInputs: inputs.map(\.url), request: PDFMergeRequest(outputName: outputName), destination: destination); onSubmitted(); dismiss() }.keyboardShortcut(.defaultAction).disabled(!valid) }
         }
-        .padding().frame(width: 520)
+        .stashActionPanel(width: 520)
         .onAppear { inputs = controller.pdfInputs(selectedIDs: selectedIDs) }
     }
 
@@ -128,8 +199,14 @@ private struct BatchRenameSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Batch Rename").font(.title3.bold())
             Text("Renames originals in place. Stash will not overwrite existing files.").font(.caption).foregroundStyle(.secondary)
-            HStack { TextField("Prefix", text: $configuration.prefix); TextField("Suffix", text: $configuration.suffix) }
-            HStack { TextField("Find", text: $configuration.find); TextField("Replace", text: $configuration.replace) }
+            HStack(alignment: .top, spacing: 12) {
+                labeledField("Prefix", text: $configuration.prefix)
+                labeledField("Suffix", text: $configuration.suffix)
+            }
+            HStack(alignment: .top, spacing: 12) {
+                labeledField("Find", text: $configuration.find)
+                labeledField("Replace", text: $configuration.replace)
+            }
             Toggle("Match case", isOn: $configuration.caseSensitive).font(.caption)
             Toggle("Sequential numbering", isOn: $configuration.sequentialNumbering)
             if configuration.sequentialNumbering {
@@ -160,11 +237,18 @@ private struct BatchRenameSheet: View {
                 .font(.caption).foregroundStyle(plan.isValid ? Color.secondary : Color.red)
             HStack { Spacer(); Button("Cancel") { dismiss() }; Button("Review Rename…") { showConfirmation = true }.keyboardShortcut(.defaultAction).disabled(!plan.isValid || plan.changedCount == 0) }
         }
-        .padding().frame(width: 650)
+        .stashActionPanel(width: 650)
         .confirmationDialog("Rename \(plan.changedCount) original item(s)?", isPresented: $showConfirmation, titleVisibility: .visible) {
             Button("Rename Originals", role: .destructive) { controller.performRenameAction(selectedIDs: selectedIDs, configuration: configuration); onSubmitted(); dismiss() }
         } message: {
             Text("This changes the selected filenames in Finder. The operation is staged to avoid overwriting files.")
+        }
+    }
+
+    private func labeledField(_ label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TextField(label, text: text).textFieldStyle(.roundedBorder)
         }
     }
 }
@@ -181,7 +265,8 @@ private struct ArchiveActionSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Create ZIP").font(.title3.bold())
-            TextField("Archive name", text: $name).textFieldStyle(.roundedBorder)
+            Text("Archive name").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TextField("Stash Archive", text: $name).textFieldStyle(.roundedBorder)
             Text(".zip is added automatically. Names cannot contain path separators or '..'.").font(.caption).foregroundStyle(.secondary)
             Toggle("Omit the selected folder’s top level", isOn: $omitTopLevel)
             Text("Available only for a single selected folder; its contents remain structured.").font(.caption).foregroundStyle(.secondary)
@@ -189,32 +274,50 @@ private struct ArchiveActionSheet: View {
             Picker("Result", selection: $destination) { ForEach(OutputDestination.allCases) { Text($0.title).tag($0) } }
             Text("Source files are read only. Stash rejects symbolic links and verifies the ZIP before showing it.").font(.caption).foregroundStyle(.secondary)
             HStack { Spacer(); Button("Cancel") { dismiss() }; Button("Create") { controller.performArchiveAction(selectedIDs: selectedIDs, request: ArchiveRequest(archiveName: name, omitSingleTopLevelFolder: omitTopLevel), destination: destination); onSubmitted(); dismiss() }.keyboardShortcut(.defaultAction).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
-        }.padding().frame(width: 440)
+        }.stashActionPanel(width: 440)
     }
 }
 
-private struct ShelfItemRow: View {
+private struct ShelfItemTile: View {
     let item: ShelfItem
     let isSelected: Bool
     let select: () -> Void
     let remove: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var isHovering = false
     var body: some View {
-        HStack(spacing: 10) {
-            icon.frame(width: 20).foregroundStyle(item.isAvailable ? Color.accentColor : Color.red)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.displayName).lineLimit(1)
-                Text(item.kind.rawValue.capitalized + (item.isAvailable ? "" : " · Missing")).font(.caption).foregroundStyle(.secondary)
+        VStack(spacing: 7) {
+            ZStack(alignment: .topTrailing) {
+                icon.frame(width: 42, height: 42).foregroundStyle(item.isAvailable ? Color.accentColor : Color.red)
+                    .shadow(color: .black.opacity(isHovering ? 0.22 : 0.10), radius: isHovering ? 5 : 2, y: isHovering ? 3 : 1)
+                    .frame(maxWidth: .infinity)
+                Button(action: remove) { Image(systemName: "minus.circle.fill").symbolRenderingMode(.hierarchical) }
+                    .buttonStyle(.borderless).opacity(isHovering ? 1 : 0.58)
+                    .help("Remove from shelf").accessibilityLabel("Remove \(item.displayName) from shelf")
             }
-            Spacer()
-            Button(action: remove) { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("Remove from shelf").accessibilityLabel("Remove \(item.displayName) from shelf")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.displayName).font(.caption.weight(.medium)).lineLimit(2).truncationMode(.middle).multilineTextAlignment(.leading)
+                Text(item.kind.rawValue.capitalized + (item.isAvailable ? "" : " · Missing")).font(.caption2).foregroundStyle(item.isAvailable ? Color.secondary : Color.red)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(8).background(rowBackground, in: RoundedRectangle(cornerRadius: 8))
+        .padding(10)
+        .frame(minHeight: 96, maxHeight: 112, alignment: .top)
+        .background(tileBackground)
+        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(borderColor, lineWidth: isSelected || differentiateWithoutColor ? 1.6 : 0.8))
+        .shadow(color: .black.opacity(isHovering || isSelected ? 0.18 : 0.07), radius: isHovering || isSelected ? 9 : 3, y: isHovering || isSelected ? 5 : 2)
+        .scaleEffect(!reduceMotion && isHovering ? 1.03 : 1)
+        .offset(y: !reduceMotion && (isHovering || isSelected) ? -1.5 : 0)
         .contentShape(Rectangle()).onTapGesture(perform: select)
         .onDrag { dragProvider(for: item) }
         .onHover { isHovering = $0 }
+        .animation(reduceMotion ? nil : StashMotion.hover, value: isHovering)
+        .animation(reduceMotion ? nil : StashMotion.selection, value: isSelected)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(item.displayName), \(item.kind.rawValue)\(item.isAvailable ? "" : ", missing")")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .help(item.displayName)
     }
 
     @ViewBuilder private var icon: some View {
@@ -222,10 +325,16 @@ private struct ShelfItemRow: View {
         else { Image(systemName: item.symbolName) }
     }
 
-    private var rowBackground: AnyShapeStyle {
-        if isSelected { return AnyShapeStyle(Color.accentColor.opacity(0.22)) }
-        if isHovering { return AnyShapeStyle(Color.primary.opacity(0.08)) }
-        return AnyShapeStyle(.quaternary)
+    private var tileBackground: some View {
+        RoundedRectangle(cornerRadius: 15, style: .continuous)
+            .fill(isSelected ? AnyShapeStyle(Color.indigo.opacity(0.18)) : AnyShapeStyle(.thinMaterial))
+            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Color.white.opacity(isHovering ? 0.10 : 0.035)))
+    }
+
+    private var borderColor: Color {
+        if isSelected { return .indigo.opacity(0.92) }
+        if !item.isAvailable { return .red.opacity(0.65) }
+        return .white.opacity(isHovering ? 0.42 : 0.20)
     }
 
     private func dragProvider(for item: ShelfItem) -> NSItemProvider {
@@ -264,7 +373,7 @@ private struct ImageActionSheet: View {
             Picker("Result", selection: $destination) { ForEach(OutputDestination.allCases) { Text($0.title).tag($0) } }
             Text("Generated files are stored safely in Stash’s Application Support folder. Sources are never changed.").font(.caption).foregroundStyle(.secondary)
             HStack { Spacer(); Button("Cancel") { dismiss() }; Button("Run") { run(); dismiss() }.keyboardShortcut(.defaultAction) }
-        }.padding().frame(width: 430)
+        }.stashActionPanel(width: 430)
         .onAppear { if !ImageOutputFormat.available.contains(format) { format = ImageOutputFormat.available.first ?? .png } }
     }
 
@@ -274,4 +383,21 @@ private struct ImageActionSheet: View {
         controller.performImageAction(selectedIDs: selectedIDs, request: request, destination: destination)
         onSubmitted()
     }
+}
+
+private struct StashActionPanelModifier: ViewModifier {
+    let width: CGFloat
+    func body(content: Content) -> some View {
+        content
+            .padding(20)
+            .frame(width: width)
+            .background(.regularMaterial)
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.24), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.15), radius: 18, y: 8)
+    }
+}
+
+private extension View {
+    func stashActionPanel(width: CGFloat) -> some View { modifier(StashActionPanelModifier(width: width)) }
 }

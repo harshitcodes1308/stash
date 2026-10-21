@@ -10,4 +10,6 @@ Milestone 2.4 adds `RenameActionService`. It produces one validated plan for the
 
 Milestone 2.5 adds `PDFActionService`, a PDFKit-only merge pipeline. It validates every selected document's UTI, readability, lock state, and page count; creates a staged merged document in explicit sheet order; reopens it to verify its page count; then records the finalized durable output through `GeneratedFileStore`. The shelf controller uses the same output destination path as images and ZIPs.
 
+Milestone 2.7 keeps that architecture intact while replacing the presentation layer. `ShelfWindowController` configures a transparent, shadowed, resizable panel; `ShelfView` provides the material shell, adaptive lazy tile grid, integrated toolbar, and Reduce Motion-aware interaction system. Stable shelf IDs, `NSItemProvider` drag payloads, selection semantics, and all action services are unchanged.
+
 The installed Command Line Tools SDK in the build environment does not include XCTest or Swift Testing, so automated tests are deferred rather than faked. The project does compile with `swift build`; UI drag/drop and hotkey behavior require the manual test pass described in the Phase 1 report.

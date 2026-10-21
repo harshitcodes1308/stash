@@ -19,15 +19,19 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
 
     init(shelf: Shelf, store: ShelfStore, coordinator: ShelfCoordinator) {
         self.shelf = shelf; self.store = store; self.coordinator = coordinator
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 330, height: 260), styleMask: [.titled, .closable, .fullSizeContentView, .resizable], backing: .buffered, defer: false)
-        panel.titleVisibility = .hidden; panel.titlebarAppearsTransparent = true; panel.isFloatingPanel = true
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 360), styleMask: [.titled, .closable, .fullSizeContentView, .resizable], backing: .buffered, defer: false)
+        panel.titleVisibility = .hidden; panel.titlebarAppearsTransparent = true; panel.titlebarSeparatorStyle = .none; panel.isFloatingPanel = true
+        panel.backgroundColor = .clear; panel.isOpaque = false; panel.hasShadow = true; panel.isMovableByWindowBackground = true
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.level = .floating; panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         super.init(window: panel)
         panel.delegate = self
         panel.contentView = NSHostingView(rootView: ShelfView(controller: self))
-        panel.minSize = NSSize(width: 330, height: 230)
+        panel.minSize = NSSize(width: 340, height: 250)
         if let savedFrame = store.frame(for: shelf) {
             panel.setFrame(clampedFrame(savedFrame), display: true)
             hasInitialPosition = true

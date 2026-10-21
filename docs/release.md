@@ -9,7 +9,7 @@ codesign --verify --deep --strict --verbose=2 build/Stash.app
 open -n build/Stash.app
 ```
 
-Artifacts: `build/Stash.app` and `build/Stash-0.1.0.zip`.
+Artifacts: `build/Stash.app` and `build/Stash-0.1.1.zip`.
 
 ## Signing and notarization
 
