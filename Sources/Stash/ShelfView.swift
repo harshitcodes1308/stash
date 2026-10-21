@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -12,12 +13,14 @@ struct ShelfView: View {
             HStack(spacing: 8) {
                 TextField("Shelf name", text: $controller.shelf.title)
                     .textFieldStyle(.plain).font(.headline)
+                    .accessibilityLabel("Shelf name")
                     .onSubmit { controller.persistIfNeeded() }
                 Spacer()
-                Text("\(controller.shelf.items.count)").foregroundStyle(.secondary)
+                Text("\(controller.shelf.items.count)").foregroundStyle(.secondary).accessibilityLabel("\(controller.shelf.items.count) items")
                 Button { controller.togglePin() } label: { Image(systemName: controller.shelf.isPinned ? "pin.fill" : "pin") }
-                    .help(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
+                    .help(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf").accessibilityLabel(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
                 Button { controller.dismiss() } label: { Image(systemName: "xmark.circle.fill") }.help("Dismiss shelf")
+                    .accessibilityLabel("Dismiss shelf")
             }
 
             if controller.shelf.items.isEmpty {
@@ -38,11 +41,11 @@ struct ShelfView: View {
                     let actions = controller.availableActions(for: selectedIDs)
                     if actions.isEmpty { Text(selectedIDs.isEmpty ? "Select image files first" : "No actions for this selection") }
                     else { ForEach(actions) { action in Button(action.title) { activeAction = action.id } } }
-                }.disabled(controller.isPerformingAction || controller.shelf.items.isEmpty)
+                }.disabled(controller.isPerformingAction || controller.shelf.items.isEmpty).accessibilityLabel("Actions for selected items")
                 Text("⌃⌥Space creates a shelf").font(.caption).foregroundStyle(.secondary)
             }
             if controller.isPerformingAction { ProgressView("Working…").controlSize(.small) }
-            if let message = controller.actionMessage { Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(3) }
+            if let message = controller.actionMessage { Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(3).accessibilityLabel("Action status: \(message)") }
         }
         .padding(14).frame(width: 330)
         .background(.regularMaterial)
@@ -52,11 +55,63 @@ struct ShelfView: View {
         .sheet(item: $activeAction) { action in
             if action == .createZip { ArchiveActionSheet(selectedIDs: selectedIDs, controller: controller, onSubmitted: { selectedIDs.removeAll() }) }
             else if action == .batchRename { BatchRenameSheet(selectedIDs: selectedIDs, controller: controller, onSubmitted: { selectedIDs.removeAll() }) }
+            else if action == .mergePDFs { PDFMergeSheet(selectedIDs: selectedIDs, controller: controller, onSubmitted: { selectedIDs.removeAll() }) }
             else { ImageActionSheet(action: action, selectedIDs: selectedIDs, controller: controller, onSubmitted: { selectedIDs.removeAll() }) }
         }
     }
 
     private func toggleSelection(_ id: UUID) { if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) } }
+}
+
+private struct PDFMergeSheet: View {
+    let selectedIDs: Set<UUID>
+    @ObservedObject var controller: ShelfWindowController
+    let onSubmitted: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var inputs: [PDFInputInfo] = []
+    @State private var outputName = "Merged Document"
+    @State private var destination: OutputDestination = .currentShelf
+
+    private var valid: Bool { inputs.count >= 2 && inputs.allSatisfy(\.isValid) && !outputName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Merge PDFs").font(.title3.bold())
+            Text("Pages are merged in this order. Source PDFs are never changed.").font(.caption).foregroundStyle(.secondary)
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(Array(inputs.enumerated()), id: \.element.id) { index, input in
+                        HStack(spacing: 8) {
+                            Text("\(index + 1)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(input.url.lastPathComponent).lineLimit(1).truncationMode(.middle)
+                                if input.isValid {
+                                    Text("\(input.pageCount) page\(input.pageCount == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
+                                } else {
+                                    Text(input.validationMessage ?? "Invalid PDF").font(.caption).foregroundStyle(.red)
+                                }
+                            }
+                            Spacer()
+                            Button { move(from: index, to: index - 1) } label: { Image(systemName: "chevron.up") }.buttonStyle(.borderless).disabled(index == 0).help("Move document earlier")
+                            Button { move(from: index, to: index + 1) } label: { Image(systemName: "chevron.down") }.buttonStyle(.borderless).disabled(index == inputs.count - 1).help("Move document later")
+                        }.padding(7).background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+                    }
+                }
+            }.frame(height: 190)
+            TextField("Output filename", text: $outputName).textFieldStyle(.roundedBorder)
+            Text(".pdf is added automatically. Output uses durable Stash storage before any export.").font(.caption).foregroundStyle(.secondary)
+            Picker("Result", selection: $destination) { ForEach(OutputDestination.allCases) { Text($0.title).tag($0) } }
+            if !valid, !inputs.isEmpty { Text(inputs.first(where: { !$0.isValid })?.validationMessage ?? "Enter an output name and select at least two valid PDFs.").font(.caption).foregroundStyle(.red) }
+            HStack { Spacer(); Button("Cancel") { dismiss() }; Button("Merge PDFs") { controller.performPDFMerge(orderedInputs: inputs.map(\.url), request: PDFMergeRequest(outputName: outputName), destination: destination); onSubmitted(); dismiss() }.keyboardShortcut(.defaultAction).disabled(!valid) }
+        }
+        .padding().frame(width: 520)
+        .onAppear { inputs = controller.pdfInputs(selectedIDs: selectedIDs) }
+    }
+
+    private func move(from source: Int, to target: Int) {
+        guard source != target, inputs.indices.contains(source), inputs.indices.contains(target) else { return }
+        let item = inputs.remove(at: source); inputs.insert(item, at: target)
+    }
 }
 
 private struct BatchRenameSheet: View {
@@ -143,19 +198,34 @@ private struct ShelfItemRow: View {
     let isSelected: Bool
     let select: () -> Void
     let remove: () -> Void
+    @State private var isHovering = false
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: item.symbolName).frame(width: 20).foregroundStyle(item.isAvailable ? Color.accentColor : Color.red)
+            icon.frame(width: 20).foregroundStyle(item.isAvailable ? Color.accentColor : Color.red)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.displayName).lineLimit(1)
                 Text(item.kind.rawValue.capitalized + (item.isAvailable ? "" : " · Missing")).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button(action: remove) { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("Remove from shelf")
+            Button(action: remove) { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("Remove from shelf").accessibilityLabel("Remove \(item.displayName) from shelf")
         }
-        .padding(8).background(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.22)) : AnyShapeStyle(.quaternary), in: RoundedRectangle(cornerRadius: 8))
+        .padding(8).background(rowBackground, in: RoundedRectangle(cornerRadius: 8))
         .contentShape(Rectangle()).onTapGesture(perform: select)
         .onDrag { dragProvider(for: item) }
+        .onHover { isHovering = $0 }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(item.displayName), \(item.kind.rawValue)\(item.isAvailable ? "" : ", missing")")
+    }
+
+    @ViewBuilder private var icon: some View {
+        if let url = item.fileURL { Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().scaledToFit() }
+        else { Image(systemName: item.symbolName) }
+    }
+
+    private var rowBackground: AnyShapeStyle {
+        if isSelected { return AnyShapeStyle(Color.accentColor.opacity(0.22)) }
+        if isHovering { return AnyShapeStyle(Color.primary.opacity(0.08)) }
+        return AnyShapeStyle(.quaternary)
     }
 
     private func dragProvider(for item: ShelfItem) -> NSItemProvider {

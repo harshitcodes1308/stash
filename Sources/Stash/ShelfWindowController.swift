@@ -11,6 +11,7 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
     private let generatedFileStore = GeneratedFileStore()
     private lazy var imageService = ImageActionService(store: generatedFileStore)
     private lazy var archiveService = ArchiveActionService(store: generatedFileStore)
+    private lazy var pdfService = PDFActionService(store: generatedFileStore)
     private let renameService = RenameActionService()
     private var hasInitialPosition = false
     @Published var isPerformingAction = false
@@ -27,6 +28,10 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         panel.delegate = self
         panel.contentView = NSHostingView(rootView: ShelfView(controller: self))
         panel.minSize = NSSize(width: 330, height: 230)
+        if let savedFrame = store.frame(for: shelf) {
+            panel.setFrame(clampedFrame(savedFrame), display: true)
+            hasInitialPosition = true
+        }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func windowWillLoad() {}
@@ -39,7 +44,7 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         }
         showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
-    func togglePin() { shelf.isPinned.toggle(); persistIfNeeded() }
+    func togglePin() { shelf.isPinned.toggle(); persistIfNeeded(); if shelf.isPinned, let frame = window?.frame { store.saveFrame(frame, for: shelf) } }
     func persistIfNeeded() { store.save(shelf) }
     func remove(_ item: ShelfItem) { shelf.items.removeAll { $0.id == item.id }; persistIfNeeded() }
     func clear() { shelf.items.removeAll(); persistIfNeeded() }
@@ -137,11 +142,51 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         }
     }
 
+    func pdfInputs(selectedIDs: Set<UUID>) -> [PDFInputInfo] {
+        pdfService.inspect(shelf.items.filter { selectedIDs.contains($0.id) }.compactMap(\.fileURL))
+    }
+
+    func performPDFMerge(orderedInputs: [URL], request: PDFMergeRequest, destination: OutputDestination) {
+        guard orderedInputs.count >= 2 else { return }
+        let exportDirectory = destination == .exportFolder ? chooseExportFolder() : nil
+        guard destination != .exportFolder || exportDirectory != nil else { return }
+        isPerformingAction = true; actionMessage = nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await pdfService.run(inputs: orderedInputs, request: request)
+                await MainActor.run {
+                    self.isPerformingAction = false
+                    if let exportDirectory { self.export([result.output], to: exportDirectory) }
+                    else if destination == .newShelf { self.coordinator?.newShelf(with: [result.output]) }
+                    else { self.appendFiles([result.output]) }
+                    self.actionMessage = "Merged \(result.pageCount) PDF page\(result.pageCount == 1 ? "" : "s")."
+                }
+            } catch {
+                await MainActor.run { self.isPerformingAction = false; self.actionMessage = error.localizedDescription }
+            }
+        }
+    }
+
     func windowDidBecomeKey(_ notification: Notification) { coordinator?.didFocus(self) }
+    func windowDidMove(_ notification: Notification) { persistFrameIfPinned() }
+    func windowDidResize(_ notification: Notification) { persistFrameIfPinned() }
     func windowWillClose(_ notification: Notification) { coordinator?.didDismiss(self) }
 
     private func screenForInitialPosition() -> NSScreen? {
         NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main
+    }
+
+    private func persistFrameIfPinned() { if shelf.isPinned, let frame = window?.frame { store.saveFrame(frame, for: shelf) } }
+
+    private func clampedFrame(_ frame: NSRect) -> NSRect {
+        guard let screen = NSScreen.screens.first(where: { $0.visibleFrame.intersects(frame) }) ?? NSScreen.main else { return frame }
+        let visible = screen.visibleFrame
+        let width = min(max(frame.width, window?.minSize.width ?? 330), visible.width)
+        let height = min(max(frame.height, window?.minSize.height ?? 230), visible.height)
+        let x = min(max(frame.origin.x, visible.minX), visible.maxX - width)
+        let y = min(max(frame.origin.y, visible.minY), visible.maxY - height)
+        return NSRect(x: x, y: y, width: width, height: height)
     }
 
     private func chooseExportFolder() -> URL? {

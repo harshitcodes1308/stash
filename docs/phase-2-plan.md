@@ -2,7 +2,7 @@
 
 ## Scope
 
-Milestones 2.1–2.4 are complete. PDF merging and Phase 2 final verification remain deliberately deferred.
+Milestones 2.1–2.5 are complete. Phase 2 final verification remains deliberately deferred.
 
 ## Design
 
@@ -17,3 +17,5 @@ The shelf gains lightweight item selection and an Actions menu. The image sheet 
 Source files are read-only inputs. Generated names are collision-safe and outputs are written to a Stash-owned run directory. Export is a copy from the durable generated result, not a move. Missing, inaccessible, malformed, and unsupported images return individual failures without deleting prior successful output.
 
 Batch Rename is the intentional exception: it changes selected original file or folder names in place after a separate explicit confirmation. Its preview and execution share one plan. The service rejects links, missing sources, overlap between a selected folder and descendant, invalid paths, duplicates, and existing unrelated destinations. It stages names as hidden siblings before the final move and performs best-effort rollback after failures. Folder descendants are not recursively renamed.
+
+PDF Merge accepts two or more valid, unlocked PDFs only. A native sheet exposes their selected order, page counts, accessible reordering controls, output name, and existing destinations. PDFKit handles merging into a durable staged result; Stash verifies the readable output count before recording it or presenting it on a shelf.

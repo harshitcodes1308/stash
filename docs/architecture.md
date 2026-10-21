@@ -8,4 +8,6 @@ Milestone 2.3 adds `ArchiveActionService`, which streams ZIP creation through ma
 
 Milestone 2.4 adds `RenameActionService`. It produces one validated plan for the live UI preview and the actual in-place rename. Valid operations stage every changed path to a unique hidden sibling before moving to final paths, allowing case-only changes and cycles without overwriting. `ShelfCoordinator` rewrites file URLs in every open shelf, including descendant references when a folder is renamed, while preserving stable shelf item UUIDs. `GeneratedFileStore` rewrites owned-path manifest entries for renamed generated files.
 
+Milestone 2.5 adds `PDFActionService`, a PDFKit-only merge pipeline. It validates every selected document's UTI, readability, lock state, and page count; creates a staged merged document in explicit sheet order; reopens it to verify its page count; then records the finalized durable output through `GeneratedFileStore`. The shelf controller uses the same output destination path as images and ZIPs.
+
 The installed Command Line Tools SDK in the build environment does not include XCTest or Swift Testing, so automated tests are deferred rather than faked. The project does compile with `swift build`; UI drag/drop and hotkey behavior require the manual test pass described in the Phase 1 report.

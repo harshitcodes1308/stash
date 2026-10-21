@@ -47,12 +47,24 @@ struct Shelf: Identifiable, Codable, Hashable {
     }
 }
 
+struct ShelfFrame: Codable, Hashable {
+    let x: CGFloat
+    let y: CGFloat
+    let width: CGFloat
+    let height: CGFloat
+    init(_ frame: CGRect) { x = frame.origin.x; y = frame.origin.y; width = frame.size.width; height = frame.size.height }
+    var rect: CGRect { CGRect(x: x, y: y, width: width, height: height) }
+}
+
 @MainActor
 final class ShelfStore: ObservableObject {
     @Published private(set) var pinnedShelves: [Shelf] = []
     private let key = "stash.pinned-shelves.v1"
+    private let frameKey = "stash.pinned-shelf-frames.v1"
+    private var pinnedFrames: [UUID: ShelfFrame] = [:]
+    private let defaults: UserDefaults
 
-    init() { load() }
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults; load() }
 
     func save(_ shelf: Shelf) {
         guard shelf.isPinned else { remove(shelf.id); return }
@@ -61,12 +73,24 @@ final class ShelfStore: ObservableObject {
         persist()
     }
 
-    func remove(_ id: UUID) { pinnedShelves.removeAll { $0.id == id }; persist() }
+    func remove(_ id: UUID) { pinnedShelves.removeAll { $0.id == id }; pinnedFrames[id] = nil; persist() }
 
-    private func load() {
-        guard let data = UserDefaults.standard.data(forKey: key), let shelves = try? JSONDecoder().decode([Shelf].self, from: data) else { return }
-        pinnedShelves = shelves
+    func saveFrame(_ frame: CGRect, for shelf: Shelf) {
+        guard shelf.isPinned else { return }
+        pinnedFrames[shelf.id] = ShelfFrame(frame)
+        persist()
     }
 
-    private func persist() { UserDefaults.standard.set(try? JSONEncoder().encode(pinnedShelves), forKey: key) }
+    func frame(for shelf: Shelf) -> CGRect? { pinnedFrames[shelf.id]?.rect }
+
+    private func load() {
+        guard let data = defaults.data(forKey: key), let shelves = try? JSONDecoder().decode([Shelf].self, from: data) else { return }
+        pinnedShelves = shelves
+        if let frameData = defaults.data(forKey: frameKey), let frames = try? JSONDecoder().decode([UUID: ShelfFrame].self, from: frameData) { pinnedFrames = frames }
+    }
+
+    private func persist() {
+        defaults.set(try? JSONEncoder().encode(pinnedShelves), forKey: key)
+        defaults.set(try? JSONEncoder().encode(pinnedFrames), forKey: frameKey)
+    }
 }

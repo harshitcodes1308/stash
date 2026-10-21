@@ -3,3 +3,7 @@
 build/
 Tools/.build/
 references/
+*.p12
+*.mobileprovision
+.env
+.env.*

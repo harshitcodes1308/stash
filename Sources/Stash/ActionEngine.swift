@@ -1,9 +1,10 @@
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+import PDFKit
 
 enum SmartActionID: String, CaseIterable, Identifiable {
-    case convertImages, resizeImages, createZip, batchRename
+    case convertImages, resizeImages, createZip, batchRename, mergePDFs
     var id: String { rawValue }
 }
 
@@ -29,6 +30,14 @@ struct ActionContext {
         !fileURLs.isEmpty && fileURLs.count == items.count && fileURLs.allSatisfy { FileManager.default.fileExists(atPath: $0.path) }
     }
 
+    func allFilesAreMergeablePDFs() -> Bool {
+        !fileURLs.isEmpty && fileURLs.count == items.count && fileURLs.allSatisfy { url in
+            guard FileManager.default.isReadableFile(atPath: url.path), let type = contentType(for: url), type.conforms(to: .pdf),
+                  let document = PDFDocument(url: url), !document.isLocked, document.pageCount > 0 else { return false }
+            return true
+        }
+    }
+
     private func contentType(for url: URL) -> UTType? {
         if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType { return type }
         return UTType(filenameExtension: url.pathExtension)
@@ -42,6 +51,7 @@ struct ActionRegistry {
     ]
     static let archiveAction = ActionDescriptor(id: .createZip, title: "Create ZIP", systemImage: "archivebox", minimumSelectionCount: 1)
     static let renameAction = ActionDescriptor(id: .batchRename, title: "Batch Rename", systemImage: "pencil.line", minimumSelectionCount: 1)
+    static let mergePDFAction = ActionDescriptor(id: .mergePDFs, title: "Merge PDFs", systemImage: "doc.on.doc", minimumSelectionCount: 2)
 
     func actions(for items: [ShelfItem]) -> [ActionDescriptor] {
         let context = ActionContext(items: items)
@@ -51,6 +61,7 @@ struct ActionRegistry {
             result.append(Self.archiveAction)
             result.append(Self.renameAction)
         }
+        if items.count >= Self.mergePDFAction.minimumSelectionCount, context.allFilesAreMergeablePDFs() { result.append(Self.mergePDFAction) }
         return result
     }
 }
