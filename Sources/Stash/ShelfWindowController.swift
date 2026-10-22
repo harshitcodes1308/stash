@@ -14,14 +14,16 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
     private lazy var pdfService = PDFActionService(store: generatedFileStore)
     private let renameService = RenameActionService()
     private var hasInitialPosition = false
+    private var frameBeforeExpansion: NSRect?
+    @Published private(set) var isExpanded = false
     @Published var isPerformingAction = false
     @Published var actionMessage: String?
 
     init(shelf: Shelf, store: ShelfStore, coordinator: ShelfCoordinator) {
         self.shelf = shelf; self.store = store; self.coordinator = coordinator
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 360), styleMask: [.titled, .closable, .fullSizeContentView, .resizable], backing: .buffered, defer: false)
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 220), styleMask: [.titled, .closable, .fullSizeContentView, .resizable], backing: .buffered, defer: false)
         panel.titleVisibility = .hidden; panel.titlebarAppearsTransparent = true; panel.titlebarSeparatorStyle = .none; panel.isFloatingPanel = true
-        panel.backgroundColor = .clear; panel.isOpaque = false; panel.hasShadow = true; panel.isMovableByWindowBackground = true
+        panel.backgroundColor = .clear; panel.isOpaque = false; panel.hasShadow = false; panel.isMovableByWindowBackground = false
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
@@ -31,7 +33,7 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         super.init(window: panel)
         panel.delegate = self
         panel.contentView = NSHostingView(rootView: ShelfView(controller: self))
-        panel.minSize = NSSize(width: 340, height: 250)
+        panel.minSize = NSSize(width: 340, height: 200)
         if let savedFrame = store.frame(for: shelf) {
             panel.setFrame(clampedFrame(savedFrame), display: true)
             hasInitialPosition = true
@@ -49,6 +51,23 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
     func togglePin() { shelf.isPinned.toggle(); persistIfNeeded(); if shelf.isPinned, let frame = window?.frame { store.saveFrame(frame, for: shelf) } }
+    func toggleExpansion() {
+        guard let window else { return }
+        let target: NSRect
+        if isExpanded, let previous = frameBeforeExpansion {
+            target = clampedFrame(previous)
+            frameBeforeExpansion = nil
+            isExpanded = false
+        } else {
+            frameBeforeExpansion = window.frame
+            let expandedSize = NSSize(width: max(window.frame.width, 560), height: max(window.frame.height, 420))
+            let centered = NSRect(x: window.frame.midX - expandedSize.width / 2, y: window.frame.midY - expandedSize.height / 2, width: expandedSize.width, height: expandedSize.height)
+            target = clampedFrame(centered)
+            isExpanded = true
+        }
+        window.setFrame(target, display: true, animate: !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        persistFrameIfPinned()
+    }
     func persistIfNeeded() { store.save(shelf) }
     func remove(_ item: ShelfItem) { shelf.items.removeAll { $0.id == item.id }; persistIfNeeded() }
     func clear() { shelf.items.removeAll(); persistIfNeeded() }

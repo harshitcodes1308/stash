@@ -25,6 +25,17 @@ These checks require a real macOS GUI session.
 3. Test long and Unicode filenames, duplicate visible names, a narrow shelf, manual resizing, and 20+ items; confirm the tile grid adapts and scrolls.
 4. Drag a supported item across the shell and transparent corners; confirm the target glow only occurs over the interactive rounded shelf and clears on exit.
 5. Verify hover and selection remain visually distinct, full filenames appear as tooltips, and missing items remain clear.
-6. Navigate controls with Tab, activate default actions with Return, dismiss sheets with Escape, and verify VoiceOver labels for pin, dismiss, remove, tiles, and actions.
-7. Confirm unavailable items are visibly marked; no action silently overwrites or deletes a source file.
-8. Test on each connected display and verify shelves avoid the Dock/menu bar after restore.
+6. Add shelves containing 1, 4, 10, 25, and 50 mixed files. Resize each shelf freely and confirm adaptive columns, real image previews, stable tile dimensions, and scrolling with no footer overlap.
+7. Navigate controls with Tab, activate default actions with Return, dismiss sheets with Escape, and verify VoiceOver labels for pin, dismiss, contextual removal, tiles, and actions.
+8. Confirm unavailable items are visibly marked; no action silently overwrites or deletes a source file.
+9. Test on each connected display and verify shelves avoid the Dock/menu bar after restore.
+
+## Release screenshot checklist
+
+Capture only real app windows after the checks above pass. Before adding an image to `docs/assets/` or a public release, verify that it shows no personal filenames, folder paths, desktop content, account names, or notification banners.
+
+1. Capture the compact empty shelf in both light and dark appearances.
+2. Capture a populated shelf with several representative files, including at least one real image thumbnail and a long filename.
+3. Capture a shelf with enough items to demonstrate scrolling without footer overlap.
+4. Capture one Smart Action panel using disposable fixture files.
+5. Review every capture at native resolution and retain only the screenshots that accurately match the shipping build.

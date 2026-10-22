@@ -6,26 +6,28 @@ struct ShelfView: View {
     @ObservedObject var controller: ShelfWindowController
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @State private var isTargeted = false
     @State private var isShelfHovered = false
     @State private var selectedIDs: Set<UUID> = []
     @State private var activeAction: SmartActionID?
-    private let columns = [GridItem(.adaptive(minimum: 94, maximum: 128), spacing: 10)]
+    @FocusState private var isTitleFocused: Bool
+    private let columns = [GridItem(.adaptive(minimum: 82, maximum: 108), spacing: 8)]
 
     var body: some View {
-        VStack(spacing: 13) {
+        VStack(spacing: 8) {
             shelfHeader
             shelfContent
             shelfFooter
         }
-        .padding(16)
-        .frame(minWidth: 340, idealWidth: 420, maxWidth: .infinity, minHeight: 250, idealHeight: 360, maxHeight: .infinity)
+        .padding(11)
+        .frame(minWidth: 326, idealWidth: 346, maxWidth: .infinity, minHeight: 176, idealHeight: 196, maxHeight: .infinity)
         .background(glassShell)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .scaleEffect(isTargeted && !reduceMotion ? 1.008 : 1)
-        .shadow(color: .black.opacity(isTargeted ? 0.28 : 0.20), radius: isTargeted ? 30 : 22, x: 0, y: isTargeted ? 14 : 10)
-        .padding(12)
+        .shadow(color: .black.opacity(isTargeted ? 0.22 : 0.15), radius: isTargeted ? 18 : 13, x: 0, y: isTargeted ? 8 : 6)
+        .padding(7)
         .onHover { isShelfHovered = $0 }
         .onDrop(of: [.fileURL, .url, .utf8PlainText], isTargeted: $isTargeted, perform: controller.acceptDrop)
         .animation(reduceMotion ? nil : StashMotion.shelf, value: isTargeted)
@@ -40,56 +42,70 @@ struct ShelfView: View {
     }
 
     private var shelfHeader: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "tray.full.fill").foregroundStyle(.indigo).imageScale(.large).accessibilityHidden(true)
-            TextField("Shelf name", text: $controller.shelf.title)
-                .textFieldStyle(.plain).font(.headline.weight(.semibold)).accessibilityLabel("Shelf name")
-                .onSubmit { controller.persistIfNeeded() }
-            Text("\(controller.shelf.items.count)")
-                .font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.horizontal, 8).padding(.vertical, 4).background(.thinMaterial, in: Capsule())
-                .accessibilityLabel("\(controller.shelf.items.count) items")
-            Menu {
-                let actions = controller.availableActions(for: selectedIDs)
-                if actions.isEmpty { Text(selectedIDs.isEmpty ? "Select files to see actions" : "No actions for this selection") }
-                else { ForEach(actions) { action in Button(action.title) { activeAction = action.id } } }
-            } label: { Image(systemName: "sparkles") }
-                .menuStyle(.borderlessButton).fixedSize().disabled(controller.isPerformingAction || controller.shelf.items.isEmpty)
-                .help("Smart Actions").accessibilityLabel("Actions for selected items")
-            Button { controller.togglePin() } label: { Image(systemName: controller.shelf.isPinned ? "pin.fill" : "pin") }
-                .buttonStyle(GlassIconButtonStyle(emphasized: controller.shelf.isPinned)).help(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
-                .accessibilityLabel(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
-            Button { controller.dismiss() } label: { Image(systemName: "xmark") }
-                .buttonStyle(GlassIconButtonStyle()).help("Dismiss shelf").accessibilityLabel("Dismiss shelf")
+        VStack(spacing: 4) {
+            ShelfWindowDragHandle()
+                .frame(width: 38, height: 6)
+                .help("Drag to move shelf")
+                .accessibilityLabel("Move shelf")
+            HStack(spacing: 6) {
+                TextField("Shelf name", text: $controller.shelf.title)
+                    .textFieldStyle(.plain).font(.callout.weight(.semibold)).accessibilityLabel("Shelf name")
+                    .focused($isTitleFocused)
+                    .onSubmit {
+                        controller.persistIfNeeded()
+                        isTitleFocused = false
+                    }
+                Text("\(controller.shelf.items.count)")
+                    .font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+                    .padding(.horizontal, 6).padding(.vertical, 2).background(Color.primary.opacity(0.065), in: Capsule())
+                    .accessibilityLabel("\(controller.shelf.items.count) items")
+                Menu {
+                    let actions = controller.availableActions(for: selectedIDs)
+                    if actions.isEmpty { Text(selectedIDs.isEmpty ? "Select files to see actions" : "No actions for this selection") }
+                    else { ForEach(actions) { action in Button(action.title) { activeAction = action.id } } }
+                } label: { Image(systemName: "sparkles").frame(width: 24, height: 24).background(Color.primary.opacity(0.055), in: Circle()) }
+                    .menuStyle(.borderlessButton).fixedSize().disabled(controller.isPerformingAction || controller.shelf.items.isEmpty)
+                    .help("Smart Actions").accessibilityLabel("Actions for selected items")
+                Button { controller.toggleExpansion() } label: { Image(systemName: controller.isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") }
+                    .buttonStyle(GlassIconButtonStyle()).help(controller.isExpanded ? "Restore previous shelf size" : "Expand shelf")
+                    .accessibilityLabel(controller.isExpanded ? "Restore previous shelf size" : "Expand shelf")
+                Button { controller.togglePin() } label: { Image(systemName: controller.shelf.isPinned ? "pin.fill" : "pin") }
+                    .buttonStyle(GlassIconButtonStyle(emphasized: controller.shelf.isPinned)).help(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
+                    .accessibilityLabel(controller.shelf.isPinned ? "Unpin shelf" : "Pin shelf")
+                Button { controller.dismiss() } label: { Image(systemName: "xmark") }
+                    .buttonStyle(GlassIconButtonStyle()).help("Dismiss shelf").accessibilityLabel("Dismiss shelf")
+            }
         }
     }
 
     @ViewBuilder private var shelfContent: some View {
         if controller.shelf.items.isEmpty {
-            VStack(spacing: 9) {
+            VStack(spacing: 5) {
                 Image(systemName: isTargeted ? "arrow.down.circle.fill" : "square.and.arrow.down")
-                    .font(.system(size: 30, weight: .light)).foregroundStyle(isTargeted ? Color.indigo : Color.secondary)
-                Text(isTargeted ? "Release to stash" : "Drop files here").font(.headline)
-                Text("Files, folders, text or links").font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 23, weight: .light)).foregroundStyle(isTargeted ? Color.indigo : Color.secondary)
+                Text(isTargeted ? "Release to stash" : "Drop files here").font(.callout.weight(.semibold))
+                Text("Files, folders, text or links").font(.caption2).foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 145)
-            .background(Color.primary.opacity(isTargeted ? 0.07 : 0.035), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 82)
+            .background(Color.primary.opacity(isTargeted ? 0.065 : 0.028), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
         } else {
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 10) {
+                LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(controller.shelf.items) { item in
                         ShelfItemTile(item: item, isSelected: selectedIDs.contains(item.id), select: { toggleSelection(item.id) }, remove: { selectedIDs.remove(item.id); controller.remove(item) })
                             .transition(.opacity.combined(with: .scale(scale: 0.92)))
                     }
-                }.padding(2)
+                }.padding(.horizontal, 2).padding(.vertical, 3)
             }
             .scrollIndicators(.automatic)
-            .frame(maxHeight: .infinity)
+            .frame(minHeight: 72, maxHeight: .infinity)
+            .layoutPriority(1)
+            .clipped()
         }
     }
 
     private var shelfFooter: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 4) {
             if controller.isPerformingAction { ProgressView("Working…").controlSize(.small).frame(maxWidth: .infinity, alignment: .leading) }
             if let message = controller.actionMessage { Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading).accessibilityLabel("Action status: \(message)") }
             HStack {
@@ -103,15 +119,32 @@ struct ShelfView: View {
     }
 
     private var glassShell: some View {
-        RoundedRectangle(cornerRadius: 28, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(LinearGradient(colors: [.white.opacity(isShelfHovered ? 0.13 : 0.08), .clear, .indigo.opacity(isTargeted ? 0.12 : 0.025)], startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(LinearGradient(colors: [isTargeted ? .indigo.opacity(0.9) : .white.opacity(0.48), .white.opacity(0.08), isTargeted ? .indigo.opacity(0.55) : .black.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: isTargeted || differentiateWithoutColor ? 2 : 1))
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(.regularMaterial)
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor).opacity(colorSchemeContrast == .increased ? 0.82 : 0.64)))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(LinearGradient(colors: [.white.opacity(isShelfHovered ? 0.09 : 0.055), .clear, .indigo.opacity(isTargeted ? 0.08 : 0.012)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(isTargeted ? Color.indigo.opacity(0.78) : Color.primary.opacity(colorSchemeContrast == .increased ? 0.30 : 0.14), lineWidth: isTargeted || differentiateWithoutColor ? 1.5 : 0.75))
     }
 
     private func toggleSelection(_ id: UUID) {
         if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) }
     }
+}
+
+private struct ShelfWindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> ShelfWindowDragNSView { ShelfWindowDragNSView() }
+    func updateNSView(_ nsView: ShelfWindowDragNSView, context: Context) {}
+}
+
+private final class ShelfWindowDragNSView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.secondaryLabelColor.withAlphaComponent(0.28).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 2), xRadius: 2, yRadius: 2).fill()
+    }
+
+    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 }
 
 private enum StashMotion {
@@ -126,7 +159,7 @@ private struct GlassIconButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .frame(width: 28, height: 28)
+            .frame(width: 24, height: 24)
             .foregroundStyle(emphasized ? Color.indigo : Color.primary.opacity(0.82))
             .background(Color.primary.opacity(configuration.isPressed ? 0.15 : 0.07), in: Circle())
             .scaleEffect(!reduceMotion && configuration.isPressed ? 0.94 : 1)
@@ -287,23 +320,27 @@ private struct ShelfItemTile: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var isHovering = false
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 4) {
             ZStack(alignment: .topTrailing) {
-                icon.frame(width: 42, height: 42).foregroundStyle(item.isAvailable ? Color.accentColor : Color.red)
+                FileThumbnailView(item: item, size: 48).foregroundStyle(item.isAvailable ? Color.accentColor : Color.red)
                     .shadow(color: .black.opacity(isHovering ? 0.22 : 0.10), radius: isHovering ? 5 : 2, y: isHovering ? 3 : 1)
                     .frame(maxWidth: .infinity)
-                Button(action: remove) { Image(systemName: "minus.circle.fill").symbolRenderingMode(.hierarchical) }
-                    .buttonStyle(.borderless).opacity(isHovering ? 1 : 0.58)
-                    .help("Remove from shelf").accessibilityLabel("Remove \(item.displayName) from shelf")
+                if isHovering || isSelected {
+                    Button(action: remove) { Image(systemName: "xmark.circle.fill").symbolRenderingMode(.hierarchical) }
+                        .buttonStyle(.borderless)
+                        .help("Remove from shelf").accessibilityLabel("Remove \(item.displayName) from shelf")
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.displayName).font(.caption.weight(.medium)).lineLimit(2).truncationMode(.middle).multilineTextAlignment(.leading)
-                Text(item.kind.rawValue.capitalized + (item.isAvailable ? "" : " · Missing")).font(.caption2).foregroundStyle(item.isAvailable ? Color.secondary : Color.red)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(item.displayName)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity)
+            if !item.isAvailable { Text("Missing").font(.caption2).foregroundStyle(.red) }
         }
-        .padding(10)
-        .frame(minHeight: 96, maxHeight: 112, alignment: .top)
+        .padding(7)
+        .frame(minHeight: 82, maxHeight: item.isAvailable ? 88 : 102, alignment: .top)
         .background(tileBackground)
         .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(borderColor, lineWidth: isSelected || differentiateWithoutColor ? 1.6 : 0.8))
         .shadow(color: .black.opacity(isHovering || isSelected ? 0.18 : 0.07), radius: isHovering || isSelected ? 9 : 3, y: isHovering || isSelected ? 5 : 2)
@@ -317,12 +354,9 @@ private struct ShelfItemTile: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(item.displayName), \(item.kind.rawValue)\(item.isAvailable ? "" : ", missing")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAction(named: "Remove from Shelf", remove)
         .help(item.displayName)
-    }
-
-    @ViewBuilder private var icon: some View {
-        if let url = item.fileURL { Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().scaledToFit() }
-        else { Image(systemName: item.symbolName) }
+        .contextMenu { Button("Remove from Shelf", role: .destructive, action: remove) }
     }
 
     private var tileBackground: some View {
