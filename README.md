@@ -4,106 +4,109 @@
 
 ### Your files, right where you need them.
 
-Stash is a native macOS floating shelf for collecting files, folders, text, and links while you work — then moving, exporting, or processing them without losing your place.
+Stash is a native macOS floating shelf for collecting files, folders, links, and text while you work — then moving or processing them without losing your place.
 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-native-F05138?logo=swift&logoColor=white)
 ![Version](https://img.shields.io/badge/version-0.1.1-6E56CF)
+![License: MIT](https://img.shields.io/badge/License-MIT-4E9A06.svg)
 
 </div>
 
-![An empty Stash shelf, captured from the app](docs/assets/stash-empty-shelf.png)
+![A populated Stash shelf with image previews and files](docs/assets/stash-populated-shelf.png)
 
-<p align="center"><sub>The real compact empty shelf in Stash 0.1.1. A populated-shelf capture is tracked in the release checklist before any public binary download.</sub></p>
+<p align="center"><sub>One compact shelf for the files you are actively working with.</sub></p>
 
 ## Why Stash?
 
-Your desktop and Downloads folder are not a workflow. Stash gives you small, independent shelves that stay handy while you collect items from Finder, prepare an attachment, organize a batch, or perform a quick file operation.
+Your desktop and Downloads folder are not a workflow. Stash gives you small, independent shelves that stay handy while you collect files, prepare an attachment, organize a batch, or run a quick file action.
 
-- Keep several focused shelves open at once.
-- Drop files in from Finder and drag them back out when you are ready.
-- Pin important shelves so they come back after restarting Stash.
-- Work locally: Stash does not upload your files or send analytics.
+## Drop it. Keep it. Do more.
 
-## What it does
+### Drop it.
 
-### A floating file shelf
+Drag files, folders, links, or text onto a floating shelf from Finder or another supported app.
 
-- Menu-bar access plus `Control` + `Option` + `Space` to open a shelf.
-- Compact, resizable glass shelves with scrolling, adaptive file tiles, selection, and drag-and-drop.
-- Native image thumbnails where macOS can provide them; clear file icons as a fallback.
-- Text and web links can live beside file references.
+![Empty Stash shelf ready for files](docs/assets/stash-empty-shelf.png)
 
-### Smart actions, without leaving your workflow
+### Keep it.
 
-| Action | What it does |
+Open multiple shelves, resize them freely, and pin the ones that should return after a restart.
+
+![Populated Stash shelf with image thumbnails](docs/assets/stash-populated-shelf.png)
+
+### Do more.
+
+Select files and use Smart Actions without interrupting the work in front of you.
+
+![Stash Smart Actions menu](docs/assets/stash-smart-actions.png)
+
+## Built for the way macOS works
+
+| | |
 | --- | --- |
-| Image conversion and resizing | Creates a new image output; source files stay intact. |
-| ZIP creation | Archives only the selected files and folders with safe relative paths. |
-| Batch rename | Shows a validated preview and asks for confirmation before renaming originals. |
-| PDF merge | Combines selected, readable PDFs in the order you choose. |
-
-Generated results are retained in `~/Library/Application Support/Stash/Generated Outputs` so they remain usable after a relaunch.
+| **Floating glass shelves** | Compact, resizable shelves that stay out of your way until you need them. |
+| **Native drag-and-drop** | Bring items in from Finder and drag them back out to Finder, an attachment field, or another supported destination. |
+| **Multiple focused shelves** | Keep separate groups for a task, project, or handoff. |
+| **Quick visual recognition** | Native image thumbnails and clean filename truncation make items easier to scan. |
+| **Smart Actions** | Convert or resize images, create ZIPs, batch rename, and merge PDFs. |
+| **Local-first** | Your files stay on your Mac. Stash has no network features, analytics, or telemetry. |
 
 ## Getting started
 
-Stash currently ships as a source-build beta. There is no Developer ID-signed, notarized public download yet, so the recommended path is to build it from this checkout on a Mac running macOS 13 or later.
+### Build from source — available now
 
-1. Install Apple’s Xcode Command Line Tools if they are not already installed:
+Stash is currently a source-build beta for **macOS 13 or later**. From a checkout of this repository:
 
-   ```zsh
-   xcode-select --install
-   ```
+```zsh
+xcode-select --install # only if Xcode Command Line Tools are not installed
+./Packaging/package-release.sh
+open -n build/Stash.app
+```
 
-2. In Terminal, from this project folder, build the app:
+Look for Stash in the menu bar, or press `Control` + `Option` + `Space` to open a shelf.
 
-   ```zsh
-   ./Packaging/package-release.sh
-   ```
+### Download a public release — not available yet
 
-3. Launch it:
+There is no verified public binary release today. The local package at `build/Stash-0.1.1.zip` is ad-hoc signed for development and testing; it is **not notarized**. A Developer ID-signed, notarized release will be documented here only after it exists.
 
-   ```zsh
-   open -n build/Stash.app
-   ```
+## Smart Actions
 
-4. Look for the Stash icon in the menu bar, or press `Control` + `Option` + `Space` to create a shelf.
+| Action | Result |
+| --- | --- |
+| **Convert Images** | Creates a new image in your chosen format; the original stays unchanged. |
+| **Resize Images** | Produces resized copies without altering source images. |
+| **Create ZIP** | Archives only the items you select, using safe relative paths. |
+| **Batch Rename** | Previews a collision-safe rename plan and asks for confirmation before changing originals. |
+| **Merge PDFs** | Combines selected, readable PDFs in the order you choose. |
 
-The locally produced archive is `build/Stash-0.1.1.zip`. It is ad-hoc signed for local testing, not notarized for public distribution.
+Generated files are retained locally in `~/Library/Application Support/Stash/Generated Outputs` so they remain usable after relaunching.
 
-## A quick first shelf
+## Privacy and safety
 
-1. Open a shelf from the menu bar or with `Control` + `Option` + `Space`.
-2. Drag files or folders from Finder onto the shelf.
-3. Drag an item from a tile directly back into Finder, an email attachment field, or another supported target.
-4. Select files and choose a Smart Action from the shelf toolbar when you want to convert, archive, rename, or merge them.
-5. Pin a shelf to restore it at its saved position and size the next time Stash launches.
+- Stash keeps file references; it does not silently copy files into a shelf.
+- Image, ZIP, and PDF actions create new output files rather than overwrite originals.
+- Batch Rename is intentionally different: it renames selected originals only after you review and confirm the plan.
+- Missing file references are shown as unavailable instead of silently removed.
 
-For a complete hands-on pass, see the [manual QA checklist](docs/manual-qa.md).
+## Building from source
 
-## Privacy and file safety
-
-- Stash is local-first. It has no network features, analytics, or telemetry.
-- Shelves hold references to your existing files; they do not silently duplicate source files.
-- Image, ZIP, and PDF actions create new outputs instead of overwriting originals.
-- Batch Rename is the exception by design: it changes selected original names only after you review and confirm the plan.
-- Missing file references are shown as unavailable rather than silently removed.
-
-## Current release status
-
-Version 0.1.1 is a polished local beta, not yet a public downloadable release. It is ad-hoc signed and has not been notarized. The remaining publication work is documented in the [release guide](docs/release.md), including Developer ID signing, notarization, a populated-shelf screenshot pass, and manual macOS QA.
-
-## Contributing
-
-Before sharing a change, run the full local checks:
+Run the project’s complete automated checks before packaging a build:
 
 ```zsh
 ./Tools/run-regressions.sh
 ./Packaging/package-release.sh
+codesign --verify --deep --strict --verbose=2 build/Stash.app
 ```
 
-The architecture and project decisions are outlined in [docs/architecture.md](docs/architecture.md).
+See the [release guide](docs/release.md) for packaging, signing, and manual QA requirements.
 
-## License
+## Contributing
 
-No license has been selected or included yet. Until a license is added, this repository does not provide a public open-source use grant.
+Contributions are welcome. Please preserve the local-first model, avoid changing file sources unexpectedly, and run the checks above before opening a change. The project architecture is described in [docs/architecture.md](docs/architecture.md).
+
+## License and release status
+
+Stash is licensed under the [MIT License](LICENSE).
+
+Version 0.1.1 is a source-build beta. It is ad-hoc signed, not notarized, and has no public binary release yet. See the [manual QA checklist](docs/manual-qa.md) and [release guide](docs/release.md) for the remaining release work.
