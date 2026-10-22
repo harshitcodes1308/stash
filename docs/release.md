@@ -9,22 +9,33 @@ codesign --verify --deep --strict --verbose=2 build/Stash.app
 open -n build/Stash.app
 ```
 
-Artifacts: `build/Stash.app` and `build/Stash-0.1.1.zip`.
+Artifacts: `build/Stash.app`, `build/Stash-0.1.1.zip`, and `build/Stash-0.1.1.dmg`.
 
 Before sharing either artifact, inspect the archive contents and signature:
 
 ```zsh
 unzip -l build/Stash-0.1.1.zip
+hdiutil verify build/Stash-0.1.1.dmg
 codesign -dv --verbose=4 build/Stash.app
 ```
 
-The archive must contain only the application bundle and normal macOS archive metadata. It must not contain `.build`, source files, test fixtures, user files, or credentials.
+The archive must contain only the application bundle and normal macOS archive metadata. It must not contain `.build`, source files, test fixtures, user files, or credentials. The DMG must contain only `Stash.app` and the `Applications` shortcut.
 
 ## Signing and notarization
 
 The checked-in packaging process produces a valid **ad-hoc** local signature inside both `Stash.app` and the ZIP. It is not Developer ID signed and is not notarized. Public downloads may trigger Gatekeeper warnings.
 
 For public distribution, a release maintainer must sign with a valid Developer ID Application certificate, submit the ZIP or DMG to Apple notarization with `notarytool`, staple the resulting ticket, then repeat signature and launch checks. Do not advise users to bypass Gatekeeper.
+
+The public command is intentionally separate from the local ad-hoc builder:
+
+```zsh
+export STASH_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+export STASH_NOTARY_PROFILE='stash-notary'
+./Packaging/package-public-release.sh
+```
+
+`STASH_NOTARY_PROFILE` must refer to a preconfigured `notarytool` keychain profile. Do not commit certificate files, API keys, or passwords. The public script signs the app before placing it in the DMG, notarizes the DMG, staples the ticket, and validates the result.
 
 ## Publication blockers
 

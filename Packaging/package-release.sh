@@ -10,4 +10,5 @@ codesign --force --deep --sign - "$bundle_path"
 rm -f "$archive_path"
 # A release archive needs the bundle itself, not Finder resource-fork sidecars.
 ditto -c -k --norsrc --keepParent "$bundle_path" "$archive_path"
+"$project_root/Packaging/create-dmg.sh"
 print "Created $archive_path"

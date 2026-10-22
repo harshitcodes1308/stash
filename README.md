@@ -54,9 +54,15 @@ Select files and use Smart Actions without interrupting the work in front of you
 
 ## Getting started
 
+### Install from GitHub Releases
+
+Verified public versions will be listed on the [Stash Releases page](https://github.com/harshitcodes1308/stash/releases). When a notarized DMG is available, download `Stash-x.y.z.dmg`, open it, and drag `Stash.app` to the `Applications` shortcut inside the window.
+
+> **Current status:** The `v0.1.1` DMG packaging is prepared, but a verified public binary is not available yet. It must be Developer ID signed and notarized before this becomes the recommended installation path.
+
 ### Build from source — available now
 
-Stash is currently a source-build beta for **macOS 13 or later**. From a checkout of this repository:
+Stash is currently available as a source-build beta for **macOS 13 or later**. From a checkout of this repository:
 
 ```zsh
 xcode-select --install # only if Xcode Command Line Tools are not installed
@@ -66,9 +72,7 @@ open -n build/Stash.app
 
 Look for Stash in the menu bar, or press `Control` + `Option` + `Space` to open a shelf.
 
-### Download a public release — not available yet
-
-There is no verified public binary release today. The local package at `build/Stash-0.1.1.zip` is ad-hoc signed for development and testing; it is **not notarized**. A Developer ID-signed, notarized release will be documented here only after it exists.
+The local packages, `build/Stash-0.1.1.dmg` and `build/Stash-0.1.1.zip`, are ad-hoc signed for development and testing; they are **not notarized**. A Developer ID-signed, notarized release will be listed on GitHub only after it exists.
 
 ## Smart Actions
 
