@@ -26,6 +26,9 @@ struct NotchDropHarness {
         precondition(manyItems.width <= 560 && manyItems.height <= 440 && manyItems.minX >= visible.minX && manyItems.maxX <= visible.maxX && manyItems.minY >= visible.minY && manyItems.maxY <= visible.maxY + 4, "Large shelves must remain bounded and visually connected to the notch.")
 
         let idle = NotchCollapsePolicy(isPerformingAction: false, isPreviewing: false, isPointerInside: false, isDraggingItem: false, hasAttachedSheet: false, isKeyWindow: false)
+        let oneRow = NotchLayout.expandedFrame(visibleFrame: visible, anchorMaxY: notch.minY, itemCount: 3)
+        let twoRows = NotchLayout.expandedFrame(visibleFrame: visible, anchorMaxY: notch.minY, itemCount: 6)
+        precondition(twoRows.height > oneRow.height && twoRows.width == oneRow.width && twoRows.maxY == oneRow.maxY, "New rows grow downward without moving the notch anchor or changing columns.")
         let previewing = NotchCollapsePolicy(isPerformingAction: false, isPreviewing: true, isPointerInside: false, isDraggingItem: false, hasAttachedSheet: false, isKeyWindow: false)
         let dragging = NotchCollapsePolicy(isPerformingAction: false, isPreviewing: false, isPointerInside: false, isDraggingItem: true, hasAttachedSheet: false, isKeyWindow: false)
         var state = NotchShelfStateMachine()

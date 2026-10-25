@@ -75,10 +75,12 @@ enum NotchLayout {
     static func collapsedShelfFrame(targetFrame: CGRect, notchFrame: CGRect?) -> CGRect { notchFrame ?? targetFrame }
 
     static func expandedFrame(visibleFrame: CGRect, anchorMaxY: CGFloat, itemCount: Int) -> CGRect {
-        let columns = min(max(itemCount, 1), 5)
-        let width = min(max(CGFloat(columns) * 92 + 64, 360), min(560, visibleFrame.width - 24))
+        // Match the adaptive grid's 82-point tiles, 8-point spacing and
+        // 40-point combined shell/grid insets. Keep columns stable on arrival.
+        let width = min(360, visibleFrame.width - 24)
+        let columns = max(1, Int((width - 40 + 8) / 90))
         let rows = ceil(CGFloat(max(itemCount, 1)) / CGFloat(max(columns, 1)))
-        let height = min(max(220, rows * 98 + 116), min(440, visibleFrame.height - 36))
+        let height = min(max(220, rows * 106 + 146), min(440, visibleFrame.height - 36))
         return CGRect(x: visibleFrame.midX - width / 2, y: anchorMaxY - height, width: width, height: height)
     }
 }

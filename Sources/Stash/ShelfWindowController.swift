@@ -4,7 +4,10 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class ShelfWindowController: NSWindowController, ObservableObject, NSWindowDelegate {
-    @Published var shelf: Shelf
+    @Published var shelf: Shelf {
+        didSet { if shelf.items.count != oldValue.items.count { itemsDidChange?() } }
+    }
+    var itemsDidChange: (() -> Void)?
     let isNotchShelf: Bool
     private let store: ShelfStore
     private weak var coordinator: ShelfCoordinator?

@@ -24,8 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowController = StashSettingsWindowController(preferences: notchPreferences)
         configureMenuBar(); registerGlobalHotKey()
         notchShelfController.show()
-        if store.pinnedShelves.isEmpty { coordinator.newShelf() }
-        else { coordinator.restorePinnedShelves() }
+        // A menu-bar utility should launch quietly. Pinned shelves are the
+        // user's explicit request to restore a visible workspace.
+        if !store.pinnedShelves.isEmpty { coordinator.restorePinnedShelves() }
     }
     func applicationWillTerminate(_ notification: Notification) { if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) } }
 

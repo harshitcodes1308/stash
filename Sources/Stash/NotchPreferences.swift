@@ -80,8 +80,8 @@ private struct StashSettingsView: View {
         Form {
             Section("Notch Mode") {
                 Toggle("Enable top-center drop target", isOn: $preferences.isEnabled)
-                Toggle("Collapse automatically when idle", isOn: $preferences.automaticallyCollapses)
-                    .disabled(!preferences.isEnabled)
+                Text("Drag-opened shelves close after dropping. Click Open Stash to keep the shelf open.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Interaction") {
                 Picker("Animation intensity", selection: $preferences.animationIntensity) {

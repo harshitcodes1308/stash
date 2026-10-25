@@ -14,6 +14,7 @@ final class NotchShelfController: NSObject {
     private var wasExpandedBeforeDrag = false
     private var heldOpen = false
     private var transitionID = UUID()
+    private var layoutWorkItem: DispatchWorkItem?
     private nonisolated(unsafe) var screenObserver: NSObjectProtocol?
     private var stateMachine = NotchShelfStateMachine()
     private var isExpanded: Bool { stateMachine.visibility == .expanded }
@@ -46,10 +47,10 @@ final class NotchShelfController: NSObject {
             let policy = NotchCollapsePolicy(
                 isPerformingAction: shelfController.isPerformingAction,
                 isPreviewing: shelfController.isPreviewing,
-                isPointerInside: shelfController.isPointerInside,
-                isDraggingItem: shelfController.isDraggingItem,
+                isPointerInside: false,
+                isDraggingItem: NSEvent.pressedMouseButtons != 0,
                 hasAttachedSheet: window.attachedSheet != nil,
-                isKeyWindow: window.isKeyWindow
+                isKeyWindow: false
             )
             guard stateMachine.collapse(if: policy) else { scheduleCollapse(); return }
         } else { stateMachine.forceCollapse() }
@@ -87,7 +88,7 @@ final class NotchShelfController: NSObject {
             shelfController?.window?.orderOut(nil)
             stateMachine.forceCollapse()
         }
-        if !preferences.automaticallyCollapses { collapseWorkItem?.cancel() }
+        scheduleCollapse()
     }
 
     private func refreshTargets() {
@@ -133,12 +134,13 @@ final class NotchShelfController: NSObject {
         }
         view.onToggle = { [weak self, weak target] in
             guard let self, let screen = target?.screen else { return }
-            if self.isExpanded {
+            if self.isExpanded && self.heldOpen {
                 self.collapse(animated: true, respectingInteraction: false)
             } else {
                 self.heldOpen = true
                 self.activeScreen = screen
                 self.expand(on: screen)
+                self.updateTargetControls()
             }
         }
         targets[displayID] = target
@@ -184,6 +186,18 @@ final class NotchShelfController: NSObject {
         guard let coordinator else { fatalError("Notch shelf coordinator must outlive NotchShelfController") }
         let controller = coordinator.makeNotchShelfController()
         controller.dismissHandler = { [weak self] in self?.collapse(animated: true, respectingInteraction: false) }
+        controller.itemsDidChange = { [weak self] in
+            guard let self else { return }
+            self.layoutWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.isExpanded, let screen = self.activeScreen else { return }
+                self.expand(on: screen)
+                self.scheduleCollapse()
+            }
+            self.layoutWorkItem = work
+            // Coalesce asynchronously delivered files into one geometry change.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
+        }
         shelfController = controller
         return controller
     }
@@ -203,6 +217,7 @@ final class NotchShelfController: NSObject {
             window.orderFrontRegardless()
         }
         stateMachine.expand()
+        scheduleCollapse()
         updateTargetControls()
         let duration = motionDuration(animated: true)
         if duration == 0 {
@@ -226,14 +241,13 @@ final class NotchShelfController: NSObject {
 
     private func scheduleCollapse() {
         collapseWorkItem?.cancel()
-        guard preferences.automaticallyCollapses, isExpanded, !heldOpen else { return }
+        guard isExpanded, !heldOpen else { return }
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            if self.shelfController?.canAutomaticallyCollapse == true { self.collapse(animated: true) }
-            else { self.scheduleCollapse() }
+            self.collapse(animated: true)
         }
         collapseWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: workItem)
     }
 
     private func targetFrame(on screen: NSScreen) -> NSRect {
@@ -244,7 +258,7 @@ final class NotchShelfController: NSObject {
         for target in targets.values {
             guard let screen = target.screen else { continue }
             let isActive = isExpanded && displayID(for: screen) == activeScreen.flatMap(displayID(for:))
-            target.view.isShelfOpen = isActive
+            target.view.isShelfOpen = isActive && heldOpen
             var frame = targetFrame(on: screen)
             if isActive { frame.origin.y = frame.maxY - 22; frame.size.height = 22 }
             target.panel.setFrame(frame, display: true)
