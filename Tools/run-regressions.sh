@@ -15,6 +15,8 @@ run_harness() {
 }
 
 run_harness action Sources/Stash/Models.swift Sources/Stash/ActionEngine.swift Tools/action-engine-harness.swift
+run_harness notch Sources/Stash/Models.swift Sources/Stash/NotchDropSupport.swift Tools/notch-drop-harness.swift
+run_harness flow-settings Sources/Stash/NotchPreferences.swift Tools/flow-settings-harness.swift
 run_harness thumbnail Sources/Stash/Models.swift Sources/Stash/FileThumbnailView.swift Tools/thumbnail-harness.swift
 run_harness image Sources/Stash/ImageActionService.swift Tools/image-action-harness.swift
 run_harness archive Sources/Stash/ImageActionService.swift Sources/Stash/ArchiveActionService.swift Tools/archive-action-harness.swift

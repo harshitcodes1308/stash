@@ -10,6 +10,29 @@ These checks require a real macOS GUI session.
 4. Pin a shelf, move/resize it, quit and relaunch; confirm its frame remains on the active display. Disconnect an external display and confirm the restored frame is visible.
 5. Unpin, dismiss, reopen from the menu bar, and verify no unexpected shelf movement.
 
+## Project FLOW — Stage A top drop target
+
+1. Launch Stash on a notched Mac and confirm there is no detached idle strip below the notch. On a non-notched display, confirm only the discreet fallback indicator appears without covering menu-bar controls.
+2. From Finder, drag one file into the physical notch/target. Confirm the shelf begins unfolding on entry, remains a valid destination through the motion, accepts on release, and contains that file.
+3. Repeat with a folder, a Finder multi-selection, a dragged URL, and plain text where the source app supports it. Confirm each creates a shelf with only the dropped items.
+4. Drag an unsupported pasteboard type over the target and confirm it does not highlight or create a shelf.
+5. Move a Finder drag across the rest of the display and confirm Stash does not claim global drag detection or react until the pointer enters the target.
+6. Repeat a rapid Finder drag and confirm one shelf is created per intentional drop with no duplicate items from one drop.
+7. Verify regular floating shelves, menu-bar controls, and `Control–Option–Space` continue to work independently of the top target.
+
+## Project FLOW — Stages B–E
+
+1. Drop files on the top target and confirm the notch shelf expands from that target without flicker or focus theft. Confirm the target stays valid during expansion.
+2. Test 1, 5, 10, 25, and 50 items. Confirm bounded sizing, adaptive tiles, internal scrolling, and no footer overlap.
+3. Select one and several files. Verify Preview, Reveal, Copy Path, and applicable Smart Actions; confirm inapplicable actions remain hidden or disabled.
+4. Open Quick Look for an available file, move through a multi-file preview, close it, and test a missing reference and an unsupported type.
+5. Enable automatic collapse. Confirm it does not collapse during pointer interaction, drag-out, Quick Look, a menu, a sheet, or a running action; confirm it collapses after becoming idle.
+6. Verify the notch shelf Close control always collapses it. Confirm a later drop reuses the shelf and retains prior items without duplication.
+7. In Settings, toggle Notch Mode, automatic collapse, all animation intensities, and both post-drop behaviors. Relaunch and confirm persistence.
+8. Enable Reduce Motion and confirm expansion, collapse, insertion, hover, and selection avoid spring or scaling motion.
+9. Connect or disconnect a display and change the primary display. Confirm one target per display, correct top-center placement, and a visible expanded shelf within the receiving display.
+10. Test menu-bar auto-hide and a full-screen Space where macOS permits auxiliary windows. Confirm targets do not cover menu-bar controls.
+
 ## Smart actions and output
 
 1. Convert and resize images; test Current Shelf, New Shelf, and Choose Folder.

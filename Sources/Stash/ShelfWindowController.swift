@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class ShelfWindowController: NSWindowController, ObservableObject, NSWindowDelegate {
     @Published var shelf: Shelf
+    let isNotchShelf: Bool
     private let store: ShelfStore
     private weak var coordinator: ShelfCoordinator?
     private let actionRegistry = ActionRegistry()
@@ -13,15 +14,21 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
     private lazy var archiveService = ArchiveActionService(store: generatedFileStore)
     private lazy var pdfService = PDFActionService(store: generatedFileStore)
     private let renameService = RenameActionService()
+    private let quickLookCoordinator = QuickLookCoordinator()
     private var hasInitialPosition = false
     private var frameBeforeExpansion: NSRect?
     @Published private(set) var isExpanded = false
     @Published var isPerformingAction = false
+    @Published private(set) var isPreviewing = false
+    @Published var isPointerInside = false
+    @Published private(set) var isDraggingItem = false
     @Published var actionMessage: String?
+    var dismissHandler: (() -> Void)?
 
-    init(shelf: Shelf, store: ShelfStore, coordinator: ShelfCoordinator) {
-        self.shelf = shelf; self.store = store; self.coordinator = coordinator
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 220), styleMask: [.titled, .closable, .fullSizeContentView, .resizable], backing: .buffered, defer: false)
+    init(shelf: Shelf, store: ShelfStore, coordinator: ShelfCoordinator, isNotchShelf: Bool = false) {
+        self.shelf = shelf; self.store = store; self.coordinator = coordinator; self.isNotchShelf = isNotchShelf
+        let styleMask: NSWindow.StyleMask = isNotchShelf ? [.titled, .closable, .fullSizeContentView] : [.titled, .closable, .fullSizeContentView, .resizable]
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 220), styleMask: styleMask, backing: .buffered, defer: false)
         panel.titleVisibility = .hidden; panel.titlebarAppearsTransparent = true; panel.titlebarSeparatorStyle = .none; panel.isFloatingPanel = true
         panel.backgroundColor = .clear; panel.isOpaque = false; panel.hasShadow = false; panel.isMovableByWindowBackground = false
         panel.standardWindowButton(.closeButton)?.isHidden = true
@@ -33,7 +40,8 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         super.init(window: panel)
         panel.delegate = self
         panel.contentView = NSHostingView(rootView: ShelfView(controller: self))
-        panel.minSize = NSSize(width: 340, height: 200)
+        panel.minSize = isNotchShelf ? NSSize(width: 1, height: 1) : NSSize(width: 340, height: 200)
+        quickLookCoordinator.onVisibilityChange = { [weak self] isVisible in self?.isPreviewing = isVisible }
         if let savedFrame = store.frame(for: shelf) {
             panel.setFrame(clampedFrame(savedFrame), display: true)
             hasInitialPosition = true
@@ -69,9 +77,9 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         persistFrameIfPinned()
     }
     func persistIfNeeded() { store.save(shelf) }
-    func remove(_ item: ShelfItem) { shelf.items.removeAll { $0.id == item.id }; persistIfNeeded() }
+    func remove(_ item: ShelfItem) { shelf.items.removeAll { $0.id == item.id }; actionMessage = "Removed \(item.displayName) from this shelf."; persistIfNeeded() }
     func clear() { shelf.items.removeAll(); persistIfNeeded() }
-    func dismiss() { store.remove(shelf.id); close() }
+    func dismiss() { if let dismissHandler { dismissHandler() } else { store.remove(shelf.id); close() } }
 
     func acceptDrop(providers: [NSItemProvider]) -> Bool {
         var accepted = false
@@ -97,7 +105,46 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
     }
     private func append(_ item: ShelfItem) { guard !shelf.items.contains(where: { $0.kind == item.kind && $0.value == item.value }) else { return }; shelf.items.append(item); persistIfNeeded() }
     func appendFiles(_ urls: [URL]) { urls.forEach { append(ShelfItem(fileURL: $0)) } }
+    func appendItems(_ items: [ShelfItem]) { items.forEach(append); actionMessage = items.isEmpty ? nil : "Added \(items.count) item\(items.count == 1 ? "" : "s")." }
     func availableActions(for selectedIDs: Set<UUID>) -> [ActionDescriptor] { actionRegistry.actions(for: shelf.items.filter { selectedIDs.contains($0.id) }) }
+
+    func preview(selectedIDs: Set<UUID>) {
+        let urls = selectedFileURLs(selectedIDs)
+        guard !urls.isEmpty else { actionMessage = "No available file to preview."; return }
+        quickLookCoordinator.preview(urls)
+    }
+
+    func revealInFinder(selectedIDs: Set<UUID>) {
+        let urls = selectedFileURLs(selectedIDs)
+        guard !urls.isEmpty else { actionMessage = "No available file to reveal."; return }
+        NSWorkspace.shared.activateFileViewerSelecting(urls)
+    }
+
+    func copyPaths(selectedIDs: Set<UUID>) {
+        let paths = selectedFileURLs(selectedIDs).map(\.path)
+        guard !paths.isEmpty else { actionMessage = "No available file path to copy."; return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
+        actionMessage = "Copied \(paths.count) path\(paths.count == 1 ? "" : "s")."
+    }
+
+    var canAutomaticallyCollapse: Bool {
+        NotchCollapsePolicy(
+            isPerformingAction: isPerformingAction,
+            isPreviewing: isPreviewing,
+            isPointerInside: isPointerInside,
+            isDraggingItem: isDraggingItem,
+            hasAttachedSheet: window?.attachedSheet != nil,
+            isKeyWindow: window?.isKeyWindow == true
+        ).allowsCollapse
+    }
+
+    func updatePointerInside(_ value: Bool) { isPointerInside = value; if value { isDraggingItem = false } }
+    func noteItemDragStarted() { isDraggingItem = true }
+
+    private func selectedFileURLs(_ selectedIDs: Set<UUID>) -> [URL] {
+        shelf.items.filter { selectedIDs.contains($0.id) && $0.isAvailable }.compactMap(\.fileURL)
+    }
 
     func performImageAction(selectedIDs: Set<UUID>, request: ImageActionRequest, destination: OutputDestination) {
         let inputs = shelf.items.filter { selectedIDs.contains($0.id) }.compactMap(\.fileURL)
@@ -191,7 +238,7 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
         }
     }
 
-    func windowDidBecomeKey(_ notification: Notification) { coordinator?.didFocus(self) }
+    func windowDidBecomeKey(_ notification: Notification) { if !isNotchShelf { coordinator?.didFocus(self) } }
     func windowDidMove(_ notification: Notification) { persistFrameIfPinned() }
     func windowDidResize(_ notification: Notification) { persistFrameIfPinned() }
     func windowWillClose(_ notification: Notification) { coordinator?.didDismiss(self) }
@@ -236,6 +283,8 @@ final class ShelfCoordinator {
     init(store: ShelfStore) { self.store = store }
     func newShelf() { let controller = ShelfWindowController(shelf: Shelf(), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
     func newShelf(with urls: [URL]) { let controller = ShelfWindowController(shelf: Shelf(items: urls.map(ShelfItem.init(fileURL:))), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
+    func newShelf(with items: [ShelfItem]) { guard !items.isEmpty else { return }; let controller = ShelfWindowController(shelf: Shelf(items: items), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
+    func makeNotchShelfController() -> ShelfWindowController { let controller = ShelfWindowController(shelf: Shelf(title: "Notch Shelf"), store: store, coordinator: self, isNotchShelf: true); controllers.append(controller); return controller }
     func restorePinnedShelves() { for shelf in store.pinnedShelves { let controller = ShelfWindowController(shelf: shelf, store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() } }
     func showCurrentShelf() { currentController?.show() }
     func didFocus(_ controller: ShelfWindowController) { currentController = controller }

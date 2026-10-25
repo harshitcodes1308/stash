@@ -1,4 +1,4 @@
-# Stash 0.1.1 release guide
+# Stash 0.2.0 release guide
 
 ## Build the local release candidate
 
@@ -9,13 +9,13 @@ codesign --verify --deep --strict --verbose=2 build/Stash.app
 open -n build/Stash.app
 ```
 
-Artifacts: `build/Stash.app`, `build/Stash-0.1.1.zip`, and `build/Stash-0.1.1.dmg`.
+Artifacts: `build/Stash.app`, `build/Stash-0.2.0.zip`, and `build/Stash-0.2.0.dmg`.
 
 Before sharing either artifact, inspect the archive contents and signature:
 
 ```zsh
-unzip -l build/Stash-0.1.1.zip
-hdiutil verify build/Stash-0.1.1.dmg
+unzip -l build/Stash-0.2.0.zip
+hdiutil verify build/Stash-0.2.0.dmg
 codesign -dv --verbose=4 build/Stash.app
 ```
 
@@ -46,7 +46,7 @@ export STASH_NOTARY_PROFILE='stash-notary'
 
 Stash remains unsandboxed to retain direct Finder file access. A future sandboxed distribution needs security-scoped bookmark design and regression testing before enabling App Sandbox.
 
-## GitHub release preparation (do not publish yet)
+## GitHub beta release
 
 Suggested repository description:
 
@@ -54,4 +54,4 @@ Suggested repository description:
 
 Suggested topics: `macos`, `swift`, `swiftui`, `appkit`, `file-management`, `productivity`, `menu-bar-app`, `drag-and-drop`, `quicklook`.
 
-Prepare the GitHub release title as **Stash v0.1.1** and use [release-notes-v0.1.1.md](release-notes-v0.1.1.md) as the release body. Do not create a public release, upload the ZIP, or claim public availability until the blockers above are closed.
+Prepare the GitHub pre-release title as **Stash v0.2.0** and use [release-notes-v0.2.0.md](release-notes-v0.2.0.md) as the release body. Upload both the ZIP and DMG only after the checks above pass, and keep the pre-release labelled ad-hoc signed and not notarized until the blockers above are closed.

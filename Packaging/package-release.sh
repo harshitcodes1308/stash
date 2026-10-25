@@ -3,7 +3,8 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 bundle_path="$project_root/build/Stash.app"
-archive_path="$project_root/build/Stash-0.1.1.zip"
+version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$project_root/Packaging/Info.plist")"
+archive_path="$project_root/build/Stash-$version.zip"
 
 "$project_root/Packaging/build-app.sh"
 codesign --force --deep --sign - "$bundle_path"

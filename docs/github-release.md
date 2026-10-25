@@ -1,29 +1,28 @@
-# GitHub release checklist
+# GitHub release guide
 
-This document prepares the assets and copy for a future public Stash release. It does not authorize publishing an ad-hoc build.
+Stash publishes source-build beta assets on GitHub Releases. Every ad-hoc release must be clearly marked as non-notarized.
 
 ## Release identity
 
-- Tag: `v0.1.1`
-- Title: `Stash v0.1.1`
-- Primary asset: `Stash-0.1.1.dmg`
-- Optional source-build asset: `Stash-0.1.1.zip`
-- Release body: `docs/release-notes-v0.1.1.md`
+- Tag: `v0.2.0`
+- Title: `Stash v0.2.0`
+- Assets: `Stash-0.2.0.dmg` and `Stash-0.2.0.zip`
+- Release body: `docs/release-notes-v0.2.0.md`
+- Status: **Pre-release** until it is Developer ID signed and notarized.
 
-## Upload steps after notarization
+## Create an ad-hoc beta release
 
 1. Run `./Tools/run-regressions.sh`.
-2. Set the Developer ID and `notarytool` keychain-profile environment variables described in `docs/release.md`.
-3. Run `./Packaging/package-public-release.sh`; it signs the app before creating the DMG, notarizes the DMG, staples the ticket, and validates it.
-4. Re-run the signature and DMG checks in `docs/release.md`.
-5. Create the `v0.1.1` GitHub Release and upload the notarized `build/Stash-0.1.1.dmg`.
-6. Paste `docs/release-notes-v0.1.1.md` as the release notes.
-7. Mark the release public only after the manual QA checklist has passed.
+2. Run `./Packaging/package-release.sh`.
+3. Verify the bundle, ZIP, and DMG as described in `docs/release.md`.
+4. Create a **pre-release** for the version tag and upload both artifacts.
+5. Paste the matching release-notes document and state that the build is ad-hoc signed and not notarized.
+6. Promote it to a normal release only after Developer ID signing, notarization, and the manual QA checklist have passed.
 
 ## README download link
 
-Once a verified release exists, the README download destination is:
+Release downloads are listed at:
 
-`https://github.com/harshitcodes1308/stash/releases/latest`
+`https://github.com/harshitcodes1308/stash/releases`
 
 Do not link to a versioned DMG until that asset has been uploaded to the corresponding GitHub Release.

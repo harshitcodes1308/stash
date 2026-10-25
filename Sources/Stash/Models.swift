@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import UniformTypeIdentifiers
 
 struct ShelfItem: Identifiable, Codable, Hashable {

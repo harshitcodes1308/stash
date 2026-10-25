@@ -8,7 +8,7 @@ Stash is a native macOS floating shelf for collecting files, folders, links, and
 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-native-F05138?logo=swift&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.1-6E56CF)
+![Version](https://img.shields.io/badge/version-0.2.0-6E56CF)
 ![License: MIT](https://img.shields.io/badge/License-MIT-4E9A06.svg)
 
 </div>
@@ -56,9 +56,9 @@ Select files and use Smart Actions without interrupting the work in front of you
 
 ### Install from GitHub Releases
 
-Verified public versions will be listed on the [Stash Releases page](https://github.com/harshitcodes1308/stash/releases). When a notarized DMG is available, download `Stash-x.y.z.dmg`, open it, and drag `Stash.app` to the `Applications` shortcut inside the window.
+Download the current beta and earlier versions from the [Stash Releases page](https://github.com/harshitcodes1308/stash/releases). Open `Stash-x.y.z.dmg`, then drag `Stash.app` to the `Applications` shortcut inside the window.
 
-> **Current status:** The `v0.1.1` DMG packaging is prepared, but a verified public binary is not available yet. It must be Developer ID signed and notarized before this becomes the recommended installation path.
+> **Current status:** `v0.2.0` is an ad-hoc-signed, non-notarized public beta. It is suitable for testing, but macOS may show a Gatekeeper warning. A Developer ID-signed, notarized build will replace it when available.
 
 ### Build from source — available now
 
@@ -72,7 +72,7 @@ open -n build/Stash.app
 
 Look for Stash in the menu bar, or press `Control` + `Option` + `Space` to open a shelf.
 
-The local packages, `build/Stash-0.1.1.dmg` and `build/Stash-0.1.1.zip`, are ad-hoc signed for development and testing; they are **not notarized**. A Developer ID-signed, notarized release will be listed on GitHub only after it exists.
+The local packages, such as `build/Stash-0.2.0.dmg` and `build/Stash-0.2.0.zip`, are ad-hoc signed for development and testing; they are **not notarized**.
 
 ## Smart Actions
 
@@ -113,4 +113,4 @@ Contributions are welcome. Please preserve the local-first model, avoid changing
 
 Stash is licensed under the [MIT License](LICENSE).
 
-Version 0.1.1 is a source-build beta. It is ad-hoc signed, not notarized, and has no public binary release yet. See the [manual QA checklist](docs/manual-qa.md) and [release guide](docs/release.md) for the remaining release work.
+Version 0.2.0 is a public source-build beta. Its GitHub release assets are ad-hoc signed and not notarized. See the [manual QA checklist](docs/manual-qa.md) and [release guide](docs/release.md) for the remaining release work.

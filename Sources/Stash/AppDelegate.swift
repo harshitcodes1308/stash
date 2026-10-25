@@ -4,7 +4,10 @@ import Carbon.HIToolbox
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let store = ShelfStore()
+    private let notchPreferences = NotchPreferences.shared
     private var coordinator: ShelfCoordinator!
+    private var notchShelfController: NotchShelfController!
+    private var settingsWindowController: StashSettingsWindowController!
     private var statusItem: NSStatusItem!
     private var hotKeyRef: EventHotKeyRef?
     private var hasLaunched = false
@@ -17,7 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !hasLaunched else { return }
         hasLaunched = true
         coordinator = ShelfCoordinator(store: store)
+        notchShelfController = NotchShelfController(coordinator: coordinator, preferences: notchPreferences)
+        settingsWindowController = StashSettingsWindowController(preferences: notchPreferences)
         configureMenuBar(); registerGlobalHotKey()
+        notchShelfController.show()
         if store.pinnedShelves.isEmpty { coordinator.newShelf() }
         else { coordinator.restorePinnedShelves() }
     }
@@ -33,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.addItem(withTitle: "New Shelf", action: #selector(newShelf), keyEquivalent: "n")
         menu.addItem(withTitle: "Show Current Shelf", action: #selector(showCurrentShelf), keyEquivalent: "o")
+        menu.addItem(withTitle: "Show Top Drop Target", action: #selector(showNotchDropTarget), keyEquivalent: "")
+        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         if store.pinnedShelves.isEmpty { let item = NSMenuItem(title: "No pinned shelves", action: nil, keyEquivalent: ""); item.isEnabled = false; menu.addItem(item) }
         else { for shelf in store.pinnedShelves { let item = NSMenuItem(title: "Show \(shelf.title)", action: #selector(showPinned(_:)), keyEquivalent: ""); item.representedObject = shelf.id.uuidString; menu.addItem(item) } }
@@ -42,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func newShelf() { coordinator.newShelf() }
     @objc private func showCurrentShelf() { coordinator.showCurrentShelf() }
+    @objc private func showNotchDropTarget() { notchShelfController.show() }
+    @objc private func showSettings() { settingsWindowController.show() }
     @objc private func showPinned(_ sender: NSMenuItem) { guard let raw = sender.representedObject as? String, let id = UUID(uuidString: raw), let shelf = store.pinnedShelves.first(where: { $0.id == id }) else { return }; coordinator.showPinned(shelf) }
     func menuNeedsUpdate(_ menu: NSMenu) { rebuildMenu() }
 

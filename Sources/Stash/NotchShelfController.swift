@@ -1,0 +1,380 @@
+import AppKit
+import UniformTypeIdentifiers
+
+@MainActor
+final class NotchShelfController: NSObject {
+    private weak var coordinator: ShelfCoordinator?
+    private let preferences: NotchPreferences
+    private var targets: [CGDirectDisplayID: NotchTargetPanel] = [:]
+    private var shelfController: ShelfWindowController?
+    private var activeScreen: NSScreen?
+    private var collapseWorkItem: DispatchWorkItem?
+    private var dragPreviewCollapseWorkItem: DispatchWorkItem?
+    private var dragPreviewActive = false
+    private var wasExpandedBeforeDrag = false
+    private var heldOpen = false
+    private var transitionID = UUID()
+    private nonisolated(unsafe) var screenObserver: NSObjectProtocol?
+    private var stateMachine = NotchShelfStateMachine()
+    private var isExpanded: Bool { stateMachine.visibility == .expanded }
+
+    init(coordinator: ShelfCoordinator, preferences: NotchPreferences) {
+        self.coordinator = coordinator
+        self.preferences = preferences
+        super.init()
+        preferences.onChange = { [weak self] in self?.preferencesDidChange() }
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in Task { @MainActor in self?.refreshTargets() } }
+    }
+
+    deinit { if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) } }
+
+    func show() {
+        guard preferences.isEnabled else { return }
+        refreshTargets()
+    }
+
+    func collapse(animated: Bool = true, respectingInteraction: Bool = true) {
+        collapseWorkItem?.cancel()
+        dragPreviewCollapseWorkItem?.cancel()
+        guard isExpanded, let shelfController, let window = shelfController.window else { return }
+        if respectingInteraction && heldOpen { return }
+        if animated && respectingInteraction {
+            let policy = NotchCollapsePolicy(
+                isPerformingAction: shelfController.isPerformingAction,
+                isPreviewing: shelfController.isPreviewing,
+                isPointerInside: shelfController.isPointerInside,
+                isDraggingItem: shelfController.isDraggingItem,
+                hasAttachedSheet: window.attachedSheet != nil,
+                isKeyWindow: window.isKeyWindow
+            )
+            guard stateMachine.collapse(if: policy) else { scheduleCollapse(); return }
+        } else { stateMachine.forceCollapse() }
+        heldOpen = false
+        dragPreviewActive = false
+        transitionID = UUID()
+        let closingID = transitionID
+        updateTargetControls()
+        let screen = activeScreen ?? window.screen ?? NSScreen.main
+        let destination = screen.map(collapsedShelfFrame(on:)) ?? window.frame
+        let duration = motionDuration(animated: animated)
+        if duration == 0 {
+            window.orderOut(nil)
+            window.setFrame(destination, display: false)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().alphaValue = 0.2
+            window.animator().setFrame(destination, display: true)
+        } completionHandler: {
+            Task { @MainActor [weak self] in
+                guard let self, self.transitionID == closingID, !self.isExpanded else { return }
+                window.orderOut(nil)
+                window.alphaValue = 1
+            }
+        }
+    }
+
+    private func preferencesDidChange() {
+        if preferences.isEnabled { refreshTargets() }
+        else {
+            targets.values.forEach { $0.panel.orderOut(nil) }
+            shelfController?.window?.orderOut(nil)
+            stateMachine.forceCollapse()
+        }
+        if !preferences.automaticallyCollapses { collapseWorkItem?.cancel() }
+    }
+
+    private func refreshTargets() {
+        guard preferences.isEnabled else { return }
+        let currentIDs = Set(NSScreen.screens.compactMap(displayID(for:)))
+        let removedIDs = targets.keys.filter { !currentIDs.contains($0) }
+        for id in removedIDs { targets[id]?.panel.close(); targets[id] = nil }
+
+        for screen in NSScreen.screens {
+            guard let id = displayID(for: screen) else { continue }
+            let target = targets[id] ?? makeTarget(for: screen, displayID: id)
+            target.screen = screen
+            target.panel.setFrame(targetFrame(on: screen), display: true)
+            target.panel.orderFrontRegardless()
+        }
+        if isExpanded, let activeScreen { positionExpandedShelf(on: activeScreen, animated: false) }
+    }
+
+    private func makeTarget(for screen: NSScreen, displayID: CGDirectDisplayID) -> NotchTargetPanel {
+        let frame = targetFrame(on: screen)
+        let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let hasHardwareNotch = notchFrame(on: screen) != nil
+        let view = NotchDropTargetView(frame: NSRect(origin: .zero, size: frame.size), hasHardwareNotch: hasHardwareNotch)
+        let target = NotchTargetPanel(panel: panel, view: view, screen: screen)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.ignoresMouseEvents = false
+        panel.acceptsMouseMovedEvents = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.contentView = view
+        view.onDrop = { [weak self, weak target] payload, _ in
+            guard let self, let screen = target?.screen else { return false }
+            return self.accept(payload, on: screen)
+        }
+        view.onDragValidityChange = { [weak self, weak target] isValid in
+            guard let self, let screen = target?.screen else { return }
+            self.dragValidityChanged(isValid, on: screen)
+        }
+        view.onToggle = { [weak self, weak target] in
+            guard let self, let screen = target?.screen else { return }
+            if self.isExpanded {
+                self.collapse(animated: true, respectingInteraction: false)
+            } else {
+                self.heldOpen = true
+                self.activeScreen = screen
+                self.expand(on: screen)
+            }
+        }
+        targets[displayID] = target
+        return target
+    }
+
+    private func accept(_ payload: NotchDropPayload, on screen: NSScreen) -> Bool {
+        guard preferences.isEnabled, !payload.isEmpty else { return false }
+        dragPreviewActive = false
+        dragPreviewCollapseWorkItem?.cancel()
+        if preferences.postDropBehavior == .newFloatingShelf {
+            coordinator?.newShelf(with: payload.items)
+            return true
+        }
+
+        let controller = notchShelfController()
+        controller.appendItems(payload.items)
+        activeScreen = screen
+        expand(on: screen)
+        scheduleCollapse()
+        return true
+    }
+
+    private func dragValidityChanged(_ isValid: Bool, on screen: NSScreen) {
+        guard preferences.postDropBehavior == .notchShelf else { return }
+        if isValid {
+            guard !dragPreviewActive else { return }
+            dragPreviewCollapseWorkItem?.cancel()
+            dragPreviewActive = true
+            wasExpandedBeforeDrag = isExpanded
+            activeScreen = screen
+            expand(on: screen)
+        } else {
+            // Opening the shelf transfers AppKit destination ownership from
+            // this trigger to the shelf. Exit is not cancellation: closing here
+            // caused an endless enter/exit loop underneath a stationary drag.
+            dragPreviewActive = false
+        }
+    }
+
+    private func notchShelfController() -> ShelfWindowController {
+        if let shelfController { return shelfController }
+        guard let coordinator else { fatalError("Notch shelf coordinator must outlive NotchShelfController") }
+        let controller = coordinator.makeNotchShelfController()
+        controller.dismissHandler = { [weak self] in self?.collapse(animated: true, respectingInteraction: false) }
+        shelfController = controller
+        return controller
+    }
+
+    private func expand(on screen: NSScreen) {
+        collapseWorkItem?.cancel()
+        dragPreviewCollapseWorkItem?.cancel()
+        let controller = notchShelfController()
+        guard let window = controller.window else { return }
+        let start = collapsedShelfFrame(on: screen)
+        let destination = expandedFrame(on: screen, itemCount: controller.shelf.items.count)
+        if isExpanded && window.frame == destination { return }
+        transitionID = UUID()
+        if !isExpanded {
+            window.setFrame(start, display: false)
+            window.alphaValue = 0.2
+            window.orderFrontRegardless()
+        }
+        stateMachine.expand()
+        updateTargetControls()
+        let duration = motionDuration(animated: true)
+        if duration == 0 {
+            window.alphaValue = 1
+            window.setFrame(destination, display: true)
+        } else {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = duration
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1.0, 0.36, 1.0)
+                window.animator().alphaValue = 1
+                window.animator().setFrame(destination, display: true)
+            }
+        }
+    }
+
+    private func positionExpandedShelf(on screen: NSScreen, animated: Bool) {
+        guard let controller = shelfController, let window = controller.window else { return }
+        let destination = expandedFrame(on: screen, itemCount: controller.shelf.items.count)
+        window.setFrame(destination, display: true, animate: animated && motionDuration(animated: true) > 0)
+    }
+
+    private func scheduleCollapse() {
+        collapseWorkItem?.cancel()
+        guard preferences.automaticallyCollapses, isExpanded, !heldOpen else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if self.shelfController?.canAutomaticallyCollapse == true { self.collapse(animated: true) }
+            else { self.scheduleCollapse() }
+        }
+        collapseWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: workItem)
+    }
+
+    private func targetFrame(on screen: NSScreen) -> NSRect {
+        NotchLayout.targetFrame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame, notchFrame: notchFrame(on: screen))
+    }
+
+    private func updateTargetControls() {
+        for target in targets.values {
+            guard let screen = target.screen else { continue }
+            let isActive = isExpanded && displayID(for: screen) == activeScreen.flatMap(displayID(for:))
+            target.view.isShelfOpen = isActive
+            var frame = targetFrame(on: screen)
+            if isActive { frame.origin.y = frame.maxY - 22; frame.size.height = 22 }
+            target.panel.setFrame(frame, display: true)
+            target.panel.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
+            target.panel.orderFrontRegardless()
+        }
+    }
+
+    private func expandedFrame(on screen: NSScreen, itemCount: Int) -> NSRect {
+        let anchor = notchFrame(on: screen).map { $0.minY + 3 } ?? screen.visibleFrame.maxY
+        return NotchLayout.expandedFrame(visibleFrame: screen.visibleFrame, anchorMaxY: anchor, itemCount: itemCount)
+    }
+
+    private func collapsedShelfFrame(on screen: NSScreen) -> NSRect {
+        NotchLayout.collapsedShelfFrame(targetFrame: targetFrame(on: screen), notchFrame: notchFrame(on: screen))
+    }
+
+    private func notchFrame(on screen: NSScreen) -> NSRect? {
+        guard screen.safeAreaInsets.top > 0,
+              let left = screen.auxiliaryTopLeftArea,
+              let right = screen.auxiliaryTopRightArea,
+              right.minX > left.maxX else { return nil }
+        return NSRect(x: left.maxX, y: min(left.minY, right.minY), width: right.minX - left.maxX, height: max(left.height, right.height))
+    }
+
+    private func motionDuration(animated: Bool) -> TimeInterval {
+        guard animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return 0 }
+        return preferences.animationIntensity.duration
+    }
+
+    private func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber).map { CGDirectDisplayID($0.uint32Value) }
+    }
+}
+
+private final class NotchTargetPanel {
+    let panel: NSPanel
+    let view: NotchDropTargetView
+    weak var screen: NSScreen?
+    init(panel: NSPanel, view: NotchDropTargetView, screen: NSScreen) { self.panel = panel; self.view = view; self.screen = screen }
+}
+
+private final class NotchDropTargetView: NSView {
+    var onToggle: (() -> Void)?
+    var isShelfOpen = false { didSet { needsDisplay = true; setAccessibilityLabel(isShelfOpen ? "Close notch shelf" : "Open notch shelf") } }
+    private var hovered = false { didSet { needsDisplay = true } }
+    private var hoverTracking: NSTrackingArea?
+    var onDrop: ((NotchDropPayload, Int) -> Bool)?
+    var onDragValidityChange: ((Bool) -> Void)?
+    private let hasHardwareNotch: Bool
+    private enum State: Equatable { case idle, valid, invalid }
+    private var state: State = .idle { didSet { needsDisplay = true } }
+    private var deduplicator = NotchDropDeduplicator()
+
+    init(frame frameRect: NSRect, hasHardwareNotch: Bool) {
+        self.hasHardwareNotch = hasHardwareNotch
+        super.init(frame: frameRect)
+        wantsLayer = true
+        registerForDraggedTypes([.fileURL, .URL, .string])
+        setAccessibilityLabel("Stash top-center drop target")
+        setAccessibilityRole(.button)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTracking { removeTrackingArea(hoverTracking) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        hoverTracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovered = true }
+    override func mouseExited(with event: NSEvent) { hovered = false }
+    override func mouseDown(with event: NSEvent) { onToggle?() }
+    override func accessibilityPerformPress() -> Bool { onToggle?(); return true }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if hovered || isShelfOpen {
+            let button = NSRect(x: bounds.midX - 45, y: bounds.maxY - 22, width: 90, height: 20)
+            NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
+            NSBezierPath(roundedRect: button, xRadius: 10, yRadius: 10).fill()
+            let title = isShelfOpen ? "Close Stash" : "Open Stash"
+            let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10, weight: .medium), .foregroundColor: NSColor.labelColor]
+            let size = (title as NSString).size(withAttributes: attributes)
+            (title as NSString).draw(at: NSPoint(x: button.midX - size.width / 2, y: button.midY - size.height / 2), withAttributes: attributes)
+            return
+        }
+        // On notched Macs the real feedback is the shelf unfolding from the
+        // notch. Keeping this trigger fully transparent avoids a second bar.
+        if hasHardwareNotch { return }
+        let targetBounds: NSRect
+        if hasHardwareNotch { targetBounds = bounds.insetBy(dx: 0, dy: 0) }
+        else { targetBounds = NSRect(x: bounds.midX - 28, y: bounds.midY - 3, width: 56, height: 6) }
+        let capsule = NSBezierPath(roundedRect: targetBounds, xRadius: hasHardwareNotch ? 13 : 3, yRadius: hasHardwareNotch ? 13 : 3)
+        let color: NSColor
+        switch state {
+        case .idle: color = .labelColor.withAlphaComponent(0.22)
+        case .valid: color = hasHardwareNotch ? .black.withAlphaComponent(0.96) : .controlAccentColor.withAlphaComponent(0.92)
+        case .invalid: color = .systemRed.withAlphaComponent(0.72)
+        }
+        color.setFill(); capsule.fill()
+        if state != .idle { (state == .valid ? NSColor.controlAccentColor : NSColor.white).withAlphaComponent(0.72).setStroke(); capsule.lineWidth = 1.5; capsule.stroke() }
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { updateDragState(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { updateDragState(sender) }
+    override func draggingExited(_ sender: NSDraggingInfo?) { state = .idle; onDragValidityChange?(false) }
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { payload(from: sender.draggingPasteboard) != nil }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        defer { state = .idle }
+        guard let payload = payload(from: sender.draggingPasteboard), deduplicator.shouldAccept(sequence: sender.draggingSequenceNumber, payload: payload) else { return false }
+        return onDrop?(payload, sender.draggingSequenceNumber) ?? false
+    }
+
+    private func updateDragState(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let valid = payload(from: sender.draggingPasteboard) != nil
+        let nextState: State = valid ? .valid : .invalid
+        if state != nextState { state = nextState; onDragValidityChange?(valid) }
+        return valid ? .copy : []
+    }
+
+    private func payload(from pasteboard: NSPasteboard) -> NotchDropPayload? {
+        let fileOptions: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let fileURLs = (pasteboard.readObjects(forClasses: [NSURL.self], options: fileOptions) ?? []).compactMap { ($0 as? NSURL).map { $0 as URL } }
+        if !fileURLs.isEmpty { return NotchDropPayload(items: fileURLs.map(ShelfItem.init(fileURL:))) }
+        if let rawURL = pasteboard.string(forType: .URL), let url = URL(string: rawURL), url.scheme != nil { return NotchDropPayload(items: [ShelfItem(text: url.absoluteString, isURL: true)]) }
+        if let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return NotchDropPayload(items: [ShelfItem(text: text)]) }
+        return nil
+    }
+}

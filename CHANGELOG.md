@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — Project FLOW beta
+
+- Added a native multi-display top-center drag destination and reusable notch-anchored shelf.
+- Added bounded spring expansion, optional guarded automatic collapse, and Reduce Motion handling.
+- Added contextual Preview, Reveal in Finder, and Copy Path actions while retaining the existing Smart Action registry.
+- Added native Quick Look previews for available shelf file references.
+- Added persistent Notch Mode, collapse, animation, and post-drop settings.
+- Added regression coverage for drop deduplication, layout bounds, expansion state, collapse suppression, and settings persistence.
+
+Distributed as an ad-hoc-signed, non-notarized GitHub beta release.
+
 ## 0.1.1 — Floating shelf polish
 
 ### Highlights
