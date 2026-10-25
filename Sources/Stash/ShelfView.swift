@@ -13,7 +13,15 @@ struct ShelfView: View {
     @State private var selectedIDs: Set<UUID> = []
     @State private var activeAction: SmartActionID?
     @FocusState private var isTitleFocused: Bool
-    private let columns = [GridItem(.adaptive(minimum: 82, maximum: 108), spacing: 8)]
+    private var columns: [GridItem] {
+        if controller.isNotchShelf {
+            // The notch shelf deliberately fills across before it grows down:
+            // three tiles at rest, then four through six on the same row.
+            let count = min(max(controller.shelf.items.count, 1), 6)
+            return Array(repeating: GridItem(.flexible(minimum: 82, maximum: 108), spacing: 8), count: count)
+        }
+        return [GridItem(.adaptive(minimum: 82, maximum: 108), spacing: 8)]
+    }
 
     var body: some View {
         VStack(spacing: 8) {

@@ -75,10 +75,13 @@ enum NotchLayout {
     static func collapsedShelfFrame(targetFrame: CGRect, notchFrame: CGRect?) -> CGRect { notchFrame ?? targetFrame }
 
     static func expandedFrame(visibleFrame: CGRect, anchorMaxY: CGFloat, itemCount: Int) -> CGRect {
-        // Match the adaptive grid's 82-point tiles, 8-point spacing and
-        // 40-point combined shell/grid insets. Keep columns stable on arrival.
-        let width = min(360, visibleFrame.width - 24)
-        let columns = max(1, Int((width - 40 + 8) / 90))
+        // Keep a single horizontal row through six tiles. The window includes
+        // the shell/grid chrome so the SwiftUI grid can keep each tile at its
+        // 82-point minimum without compression.
+        let columns = min(max(itemCount, 1), 6)
+        let horizontalChrome: CGFloat = 40
+        let rowWidth = CGFloat(columns) * 82 + CGFloat(columns - 1) * 8 + horizontalChrome
+        let width = min(max(360, rowWidth), visibleFrame.width - 24)
         let rows = ceil(CGFloat(max(itemCount, 1)) / CGFloat(max(columns, 1)))
         let height = min(max(220, rows * 106 + 146), min(440, visibleFrame.height - 36))
         return CGRect(x: visibleFrame.midX - width / 2, y: anchorMaxY - height, width: width, height: height)
