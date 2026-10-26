@@ -19,7 +19,7 @@ enum NotchPostDropBehavior: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
     var title: String {
-        switch self { case .notchShelf: return "Show in Notch Shelf"; case .newFloatingShelf: return "Open New Floating Shelf" }
+        switch self { case .notchShelf: return "Add to Current Stash"; case .newFloatingShelf: return "Create New Stash Tab" }
     }
 }
 

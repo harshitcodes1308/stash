@@ -83,7 +83,7 @@ enum NotchLayout {
         let rowWidth = CGFloat(columns) * 82 + CGFloat(columns - 1) * 8 + horizontalChrome
         let width = min(max(360, rowWidth), visibleFrame.width - 24)
         let rows = ceil(CGFloat(max(itemCount, 1)) / CGFloat(max(columns, 1)))
-        let height = min(max(220, rows * 106 + 146), min(440, visibleFrame.height - 36))
+        let height = min(max(220, rows * 106 + 182), min(440, visibleFrame.height - 36))
         return CGRect(x: visibleFrame.midX - width / 2, y: anchorMaxY - height, width: width, height: height)
     }
 }

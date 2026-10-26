@@ -1,8 +1,87 @@
 import AppKit
 import UniformTypeIdentifiers
+import Combine
 
 @MainActor
-final class NotchShelfController: NSObject {
+final class NotchShelfController: NSObject, ObservableObject {
+    @Published private(set) var tabs: [Shelf] = []
+    @Published private(set) var selectedTabID: UUID?
+    private var tabControllers: [UUID: ShelfWindowController] = [:]
+
+    func openCurrent() {
+        if !preferences.isEnabled { preferences.isEnabled = true }
+        heldOpen = true
+        let screen = activeScreen ?? NSScreen.main
+        guard let screen else { return }
+        activeScreen = screen
+        expand(on: screen)
+        updateTargetControls()
+    }
+
+    func newTab(items: [ShelfItem] = []) {
+        var number = 1
+        let names = Set(tabs.map(\.title))
+        while names.contains("Stash \(number)") { number += 1 }
+        let shelf = Shelf(title: "Stash \(number)", items: items)
+        selectTab(registerTab(shelf).shelf.id)
+    }
+
+    func restoreTabs(_ shelves: [Shelf]) {
+        for shelf in shelves { _ = registerTab(shelf) }
+    }
+
+    func openPinned(_ shelf: Shelf) {
+        if tabControllers[shelf.id] == nil { _ = registerTab(shelf) }
+        selectTab(shelf.id)
+    }
+
+    func selectTab(_ id: UUID) {
+        guard let next = tabControllers[id] else { return }
+        // A sheet or Quick Look session belongs to its original tab.
+        guard shelfController?.isPerformingAction != true,
+              shelfController?.isPreviewing != true,
+              shelfController?.window?.attachedSheet == nil else { return }
+        if shelfController !== next {
+            transitionID = UUID()
+            shelfController?.window?.orderOut(nil)
+            stateMachine.forceCollapse()
+            shelfController = next
+            selectedTabID = id
+        }
+        openCurrent()
+    }
+
+    func closeTab(_ id: UUID) {
+        guard let controller = tabControllers[id], !controller.isPerformingAction,
+              !controller.isPreviewing, controller.window?.attachedSheet == nil else { return }
+        let wasSelected = selectedTabID == id
+        if wasSelected {
+            collapse(animated: false, respectingInteraction: false)
+            shelfController = nil
+            selectedTabID = nil
+        }
+        // Closing a pinned tab hides it for this session; its saved copy remains.
+        controller.close()
+        coordinator?.didDismiss(controller)
+        tabControllers[id] = nil
+        tabs.removeAll { $0.id == id }
+        if wasSelected, let next = tabs.first { selectTab(next.id) }
+    }
+
+    private func registerTab(_ shelf: Shelf) -> ShelfWindowController {
+        if let existing = tabControllers[shelf.id] { return existing }
+        guard let coordinator else { fatalError("Missing shelf coordinator") }
+        let controller = coordinator.makeNotchShelfController(shelf: shelf)
+        controller.notchWorkspace = self
+        controller.shelfDidChange = { [weak self, weak controller] in
+            guard let self, let controller, let index = self.tabs.firstIndex(where: { $0.id == controller.shelf.id }) else { return }
+            self.tabs[index] = controller.shelf
+        }
+        configure(controller)
+        tabControllers[shelf.id] = controller
+        tabs.append(shelf)
+        return controller
+    }
     private weak var coordinator: ShelfCoordinator?
     private let preferences: NotchPreferences
     private var targets: [CGDirectDisplayID: NotchTargetPanel] = [:]
@@ -183,8 +262,13 @@ final class NotchShelfController: NSObject {
 
     private func notchShelfController() -> ShelfWindowController {
         if let shelfController { return shelfController }
-        guard let coordinator else { fatalError("Notch shelf coordinator must outlive NotchShelfController") }
-        let controller = coordinator.makeNotchShelfController()
+        let controller = tabs.first.flatMap { tabControllers[$0.id] } ?? registerTab(Shelf(title: "Stash 1"))
+        shelfController = controller
+        selectedTabID = controller.shelf.id
+        return controller
+    }
+
+    private func configure(_ controller: ShelfWindowController) {
         controller.dismissHandler = { [weak self] in self?.collapse(animated: true, respectingInteraction: false) }
         controller.itemsDidChange = { [weak self] in
             guard let self else { return }
@@ -198,8 +282,6 @@ final class NotchShelfController: NSObject {
             // Coalesce asynchronously delivered files into one geometry change.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
         }
-        shelfController = controller
-        return controller
     }
 
     private func expand(on screen: NSScreen) {

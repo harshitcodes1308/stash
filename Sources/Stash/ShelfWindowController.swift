@@ -5,9 +5,16 @@ import UniformTypeIdentifiers
 @MainActor
 final class ShelfWindowController: NSWindowController, ObservableObject, NSWindowDelegate {
     @Published var shelf: Shelf {
-        didSet { if shelf.items.count != oldValue.items.count { itemsDidChange?() } }
+        didSet {
+            shelfDidChange?()
+            if shelf.items.count != oldValue.items.count { itemsDidChange?() }
+        }
     }
     var itemsDidChange: (() -> Void)?
+    var shelfDidChange: (() -> Void)?
+    weak var notchWorkspace: NotchShelfController? {
+        didSet { window?.contentView = NSHostingView(rootView: ShelfView(controller: self)) }
+    }
     let isNotchShelf: Bool
     private let store: ShelfStore
     private weak var coordinator: ShelfCoordinator?
@@ -280,14 +287,15 @@ final class ShelfWindowController: NSWindowController, ObservableObject, NSWindo
 
 @MainActor
 final class ShelfCoordinator {
+    var routeNewShelf: (([ShelfItem]) -> Bool)?
     let store: ShelfStore
     private var controllers: [ShelfWindowController] = []
     private var currentController: ShelfWindowController?
     init(store: ShelfStore) { self.store = store }
-    func newShelf() { let controller = ShelfWindowController(shelf: Shelf(), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
-    func newShelf(with urls: [URL]) { let controller = ShelfWindowController(shelf: Shelf(items: urls.map(ShelfItem.init(fileURL:))), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
-    func newShelf(with items: [ShelfItem]) { guard !items.isEmpty else { return }; let controller = ShelfWindowController(shelf: Shelf(items: items), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
-    func makeNotchShelfController() -> ShelfWindowController { let controller = ShelfWindowController(shelf: Shelf(title: "Notch Shelf"), store: store, coordinator: self, isNotchShelf: true); controllers.append(controller); return controller }
+    func newShelf() { if routeNewShelf?([]) == true { return }; let controller = ShelfWindowController(shelf: Shelf(), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
+    func newShelf(with urls: [URL]) { newShelf(with: urls.map(ShelfItem.init(fileURL:))) }
+    func newShelf(with items: [ShelfItem]) { guard !items.isEmpty else { return }; if routeNewShelf?(items) == true { return }; let controller = ShelfWindowController(shelf: Shelf(items: items), store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() }
+    func makeNotchShelfController(shelf: Shelf = Shelf(title: "Stash 1")) -> ShelfWindowController { let controller = ShelfWindowController(shelf: shelf, store: store, coordinator: self, isNotchShelf: true); controllers.append(controller); return controller }
     func restorePinnedShelves() { for shelf in store.pinnedShelves { let controller = ShelfWindowController(shelf: shelf, store: store, coordinator: self); controllers.append(controller); currentController = controller; controller.show() } }
     func showCurrentShelf() { currentController?.show() }
     func didFocus(_ controller: ShelfWindowController) { currentController = controller }

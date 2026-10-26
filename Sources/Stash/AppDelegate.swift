@@ -21,12 +21,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hasLaunched = true
         coordinator = ShelfCoordinator(store: store)
         notchShelfController = NotchShelfController(coordinator: coordinator, preferences: notchPreferences)
+        coordinator.routeNewShelf = { [weak self] items in
+            guard let self else { return false }
+            DispatchQueue.main.async { self.notchShelfController.newTab(items: items) }
+            return true
+        }
         settingsWindowController = StashSettingsWindowController(preferences: notchPreferences)
         configureMenuBar(); registerGlobalHotKey()
         notchShelfController.show()
         // A menu-bar utility should launch quietly. Pinned shelves are the
         // user's explicit request to restore a visible workspace.
-        if !store.pinnedShelves.isEmpty { coordinator.restorePinnedShelves() }
+        notchShelfController.restoreTabs(store.pinnedShelves)
     }
     func applicationWillTerminate(_ notification: Notification) { if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) } }
 
@@ -35,26 +40,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "tray.full", accessibilityDescription: "Stash")
         rebuildMenu()
     }
-    private func rebuildMenu() {
-        let menu = NSMenu()
+    private func rebuildMenu(_ existingMenu: NSMenu? = nil) {
+        let menu = existingMenu ?? NSMenu()
+        menu.removeAllItems()
         menu.delegate = self
-        menu.addItem(withTitle: "New Shelf", action: #selector(newShelf), keyEquivalent: "n")
-        menu.addItem(withTitle: "Show Current Shelf", action: #selector(showCurrentShelf), keyEquivalent: "o")
-        menu.addItem(withTitle: "Show Top Drop Target", action: #selector(showNotchDropTarget), keyEquivalent: "")
+        menu.addItem(withTitle: "New Stash", action: #selector(newShelf), keyEquivalent: "n")
+        menu.addItem(withTitle: "Show Current Stash", action: #selector(showCurrentShelf), keyEquivalent: "o")
+        menu.addItem(withTitle: "Open Notch Workspace", action: #selector(showNotchDropTarget), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         if store.pinnedShelves.isEmpty { let item = NSMenuItem(title: "No pinned shelves", action: nil, keyEquivalent: ""); item.isEnabled = false; menu.addItem(item) }
         else { for shelf in store.pinnedShelves { let item = NSMenuItem(title: "Show \(shelf.title)", action: #selector(showPinned(_:)), keyEquivalent: ""); item.representedObject = shelf.id.uuidString; menu.addItem(item) } }
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Quit Stash", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        for item in menu.items where item.action != nil && item.action != #selector(NSApplication.terminate(_:)) { item.target = self }
         statusItem.menu = menu
     }
     @objc private func newShelf() { coordinator.newShelf() }
-    @objc private func showCurrentShelf() { coordinator.showCurrentShelf() }
-    @objc private func showNotchDropTarget() { notchShelfController.show() }
+    @objc private func showCurrentShelf() { notchShelfController.openCurrent() }
+    @objc private func showNotchDropTarget() { notchShelfController.openCurrent() }
     @objc private func showSettings() { settingsWindowController.show() }
-    @objc private func showPinned(_ sender: NSMenuItem) { guard let raw = sender.representedObject as? String, let id = UUID(uuidString: raw), let shelf = store.pinnedShelves.first(where: { $0.id == id }) else { return }; coordinator.showPinned(shelf) }
-    func menuNeedsUpdate(_ menu: NSMenu) { rebuildMenu() }
+    @objc private func showPinned(_ sender: NSMenuItem) { guard let raw = sender.representedObject as? String, let id = UUID(uuidString: raw), let shelf = store.pinnedShelves.first(where: { $0.id == id }) else { return }; notchShelfController.openPinned(shelf) }
+    func menuNeedsUpdate(_ menu: NSMenu) { rebuildMenu(menu) }
 
     private func registerGlobalHotKey() {
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))

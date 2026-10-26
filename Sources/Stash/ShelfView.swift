@@ -2,6 +2,36 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct NotchTabStrip: View {
+    @ObservedObject var workspace: NotchShelfController
+    var body: some View {
+        HStack(spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(workspace.tabs) { shelf in
+                        HStack(spacing: 4) {
+                            Button { workspace.selectTab(shelf.id) } label: {
+                                HStack(spacing: 3) {
+                                    if shelf.isPinned { Image(systemName: "pin.fill") }
+                                    Text(shelf.title).lineLimit(1)
+                                    Text("\(shelf.items.count)").foregroundStyle(.secondary)
+                                }
+                            }.accessibilityLabel("Open \(shelf.title), \(shelf.items.count) items")
+                            Button { workspace.closeTab(shelf.id) } label: { Image(systemName: "xmark").font(.system(size: 9)) }
+                                .help(shelf.isPinned ? "Close tab; pinned Stash stays saved" : "Close Stash tab")
+                                .accessibilityLabel("Close \(shelf.title)")
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(Color.primary.opacity(workspace.selectedTabID == shelf.id ? 0.13 : 0.04), in: Capsule())
+                    }
+                }
+            }
+            Button { workspace.newTab() } label: { Image(systemName: "plus") }
+                .help("New Stash").accessibilityLabel("New Stash tab")
+        }.buttonStyle(.borderless).font(.caption).frame(height: 28)
+    }
+}
+
 struct ShelfView: View {
     @ObservedObject var controller: ShelfWindowController
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -27,6 +57,7 @@ struct ShelfView: View {
         VStack(spacing: 8) {
             if controller.isNotchShelf { Color.clear.frame(height: 18).accessibilityHidden(true) }
             shelfHeader
+            if let workspace = controller.notchWorkspace { NotchTabStrip(workspace: workspace) }
             shelfContent
             shelfFooter
         }
@@ -61,7 +92,11 @@ struct ShelfView: View {
             }
             HStack(spacing: 6) {
                 if controller.isNotchShelf {
-                    Text("Stash").font(.callout.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                    Text(controller.shelf.title).font(.callout.weight(.semibold)).lineLimit(1).accessibilityAddTraits(.isHeader)
+                    Button { controller.togglePin() } label: { Image(systemName: controller.shelf.isPinned ? "pin.fill" : "pin") }
+                        .buttonStyle(GlassIconButtonStyle(emphasized: controller.shelf.isPinned))
+                        .help(controller.shelf.isPinned ? "Unpin Stash" : "Save Stash for next launch")
+                        .accessibilityLabel(controller.shelf.isPinned ? "Unpin Stash" : "Pin Stash")
                 } else {
                     TextField("Shelf name", text: $controller.shelf.title)
                         .textFieldStyle(.plain).font(.callout.weight(.semibold)).accessibilityLabel("Shelf name")
