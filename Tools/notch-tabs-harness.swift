@@ -20,7 +20,14 @@ struct NotchTabsHarness {
         workspace.newTab(items: [ShelfItem(text: "converted output")])
         let outputID = workspace.selectedTabID!
         precondition(workspace.tabs.count == 2 && workspace.tabs.last?.items.first?.value == "converted output")
+        let oldWindow = NSApp.windows.first { $0.isVisible && $0.frame.height > 100 }!
+        let openFrame = oldWindow.frame
+        preferences.animationIntensity = .standard
         workspace.selectTab(saved.id)
+        let newWindow = NSApp.windows.first { $0.isVisible && $0.frame.height > 100 }!
+        precondition(newWindow !== oldWindow && !oldWindow.isVisible)
+        precondition(newWindow.frame == openFrame && newWindow.alphaValue == 1, "Switching open tabs must keep the full-size opaque shell without replaying entrance")
+        preferences.animationIntensity = .off
         precondition(workspace.selectedTabID == saved.id && workspace.tabs.first?.items.first?.value == "saved content")
         workspace.closeTab(outputID)
         precondition(workspace.tabs.count == 1 && workspace.selectedTabID == saved.id)

@@ -43,10 +43,23 @@ final class NotchShelfController: NSObject, ObservableObject {
               shelfController?.window?.attachedSheet == nil else { return }
         if shelfController !== next {
             transitionID = UUID()
-            shelfController?.window?.orderOut(nil)
-            stateMachine.forceCollapse()
+            layoutWorkItem?.cancel()
+            let previousWindow = shelfController?.window
+            let staysOpen = isExpanded && previousWindow?.isVisible == true
+            if staysOpen, let previousWindow, let nextWindow = next.window {
+                // Present the destination at the existing shell geometry before
+                // hiding the old tab. Never restart the notch entrance animation.
+                nextWindow.setFrame(previousWindow.frame, display: false)
+                nextWindow.alphaValue = 1
+                nextWindow.contentView?.layoutSubtreeIfNeeded()
+                nextWindow.orderFrontRegardless()
+                if previousWindow.isKeyWindow { nextWindow.makeKey() }
+            } else {
+                stateMachine.forceCollapse()
+            }
             shelfController = next
             selectedTabID = id
+            previousWindow?.orderOut(nil)
         }
         openCurrent()
     }
