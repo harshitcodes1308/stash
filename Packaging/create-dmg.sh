@@ -27,4 +27,9 @@ hdiutil create \
   -ov \
   "$dmg_path" >/dev/null
 hdiutil verify "$dmg_path" >/dev/null
+(
+  cd "$project_root/build"
+  shasum -a 256 "Stash-$version.dmg" > "Stash-$version.dmg.sha256"
+)
 print "Created $dmg_path"
+print "Created $dmg_path.sha256"

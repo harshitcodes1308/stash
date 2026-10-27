@@ -9,7 +9,7 @@ codesign --verify --deep --strict --verbose=2 build/Stash.app
 open -n build/Stash.app
 ```
 
-Artifacts: `build/Stash.app`, `build/Stash-0.2.0.zip`, and `build/Stash-0.2.0.dmg`.
+Artifacts: `build/Stash.app`, `build/Stash-0.2.0.zip`, `build/Stash-0.2.0.dmg`, and `build/Stash-0.2.0.dmg.sha256`.
 
 Before sharing either artifact, inspect the archive contents and signature:
 
@@ -17,6 +17,7 @@ Before sharing either artifact, inspect the archive contents and signature:
 unzip -l build/Stash-0.2.0.zip
 hdiutil verify build/Stash-0.2.0.dmg
 codesign -dv --verbose=4 build/Stash.app
+cd build && shasum -a 256 -c Stash-0.2.0.dmg.sha256
 ```
 
 The archive must contain only the application bundle and normal macOS archive metadata. It must not contain `.build`, source files, test fixtures, user files, or credentials. The DMG must contain only `Stash.app` and the `Applications` shortcut.
@@ -37,12 +38,12 @@ export STASH_NOTARY_PROFILE='stash-notary'
 
 `STASH_NOTARY_PROFILE` must refer to a preconfigured `notarytool` keychain profile. Do not commit certificate files, API keys, or passwords. The public script signs the app before placing it in the DMG, notarizes the DMG, staples the ticket, and validates the result.
 
-## Publication blockers
+## Public beta limitations
 
 - The MIT `LICENSE` is present. Keep its copyright notice intact in distributed source archives.
 - Capture and review real product screenshots, including a populated shelf with image thumbnails.
 - Complete the GUI checklist in `docs/manual-qa.md`, including multiple displays and a real locked PDF.
-- Obtain Developer ID signing and notarization credentials.
+- A Developer ID certificate and notarization credentials are required for a trusted macOS download. The public beta is explicitly labeled as unnotarized.
 
 Stash remains unsandboxed to retain direct Finder file access. A future sandboxed distribution needs security-scoped bookmark design and regression testing before enabling App Sandbox.
 
@@ -54,4 +55,4 @@ Suggested repository description:
 
 Suggested topics: `macos`, `swift`, `swiftui`, `appkit`, `file-management`, `productivity`, `menu-bar-app`, `drag-and-drop`, `quicklook`.
 
-Prepare the GitHub pre-release title as **Stash v0.2.0** and use [release-notes-v0.2.0.md](release-notes-v0.2.0.md) as the release body. Upload both the ZIP and DMG only after the checks above pass, and keep the pre-release labelled ad-hoc signed and not notarized until the blockers above are closed.
+Use the GitHub pre-release title **Stash v0.2.0** and [release-notes-v0.2.0.md](release-notes-v0.2.0.md) as the release body. Attach the DMG and its checksum there, and keep the pre-release labelled ad-hoc signed and not notarized until a Developer ID build replaces it. Do not commit the DMG into Git history.

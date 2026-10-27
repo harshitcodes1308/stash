@@ -1,118 +1,106 @@
 <div align="center">
 
-<img src="docs/assets/Stash-AppIcon-1024.png" alt="Stash app icon" width="112" height="112">
+<img src="docs/assets/Stash-AppIcon-1024.png" alt="Stash app icon" width="104" height="104">
 
 # Stash
 
-### Your files, right where you need them.
+**Your files, right where you need them.**
 
-Stash is a native macOS notch workspace for collecting files, folders, links, and text while you work — then moving or processing them without losing your place.
+Drag files toward your MacBook's notch and Stash opens a floating shelf to hold them. Keep files within reach, move them between apps, and handle common file tasks without losing your place.
 
-![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-222222?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-native-F05138?logo=swift&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.2.0-6E56CF)
-![License: MIT](https://img.shields.io/badge/License-MIT-4E9A06.svg)
+![v0.2.0 beta](https://img.shields.io/badge/v0.2.0-beta-6E56CF)
+[![MIT License](https://img.shields.io/badge/License-MIT-4E9A06.svg)](LICENSE)
+
+**[Download Stash for macOS](https://github.com/harshitcodes1308/stash/releases/download/v0.2.0/Stash-0.2.0.dmg)** · [SHA-256 checksum](https://github.com/harshitcodes1308/stash/releases/download/v0.2.0/Stash-0.2.0.dmg.sha256)
+
+<sub>Public beta · ad-hoc signed · not notarized. macOS may block the first launch.</sub>
 
 </div>
 
-![A populated Stash shelf with image previews and files](docs/assets/stash-populated-shelf.png)
+<div align="center">
+<img src="docs/assets/notch-silhouette.svg" alt="Illustrative MacBook notch silhouette" width="186"><br>
+<img src="docs/assets/stash-notch-workspace.png" alt="Actual Stash notch workspace with six files and a pinned tab" width="920">
+<br><sub>Real Stash v0.2.0 capture. The notch silhouette above the capture is an illustration.</sub>
+</div>
 
-<p align="center"><sub>Floating shelf capture from v0.1.1. The v0.2.0 notch workspace has not yet been photographed for this README.</sub></p>
+## Meet your new drop zone.
 
-## Why Stash?
+| 1. Drag toward the notch | 2. Drop into Stash | 3. Keep working |
+| --- | --- | --- |
+| Drag files from Finder toward the top-center drop target. | The shelf opens to receive them, then folds away after the drop. | Click **Open Stash** to keep it open, switch tabs, drag files out, or use Smart Actions. |
 
-Your desktop and Downloads folder are not a workflow. Stash keeps independent tabs beneath your MacBook's notch, ready for files, attachments, and quick file actions. Pin tabs you want to reopen next time.
+Notch Mode is on by default and can be changed from **Stash Settings** in the menu bar. On a Mac without a physical notch, Stash uses a top-center drop target.
 
-## Drop it. Keep it. Do more.
-
-### Drop it.
-
-Drag files, folders, links, or text onto a floating shelf from Finder or another supported app.
-
-![Empty Stash shelf ready for files](docs/assets/stash-empty-shelf.png)
-
-### Keep it.
-
-Keep separate notch tabs for different tasks. Pin the ones that should return after a restart.
-
-![Populated Stash shelf with image thumbnails](docs/assets/stash-populated-shelf.png)
-
-### Do more.
-
-Select files and use Smart Actions without interrupting the work in front of you.
-
-![Stash Smart Actions menu](docs/assets/stash-smart-actions.png)
-
-## Built for the way macOS works
+## A shelf when you need one.
 
 | | |
 | --- | --- |
-| **Notch workspace** | Drop files at the top center of your display and open the shelf when you need it. |
-| **Native drag-and-drop** | Bring items in from Finder and drag them back out to Finder, an attachment field, or another supported destination. |
-| **Multiple Stash tabs** | Keep separate groups for a task, project, or handoff; pin tabs to restore them. |
-| **Quick visual recognition** | Native image thumbnails and clean filename truncation make items easier to scan. |
+| **Notch workspace** | A compact drop target expands around the top of the screen. Keep separate tabs and pin the ones you want after restart. |
+| **Floating shelves** | Create, move, resize, and pin regular shelves for different tasks. |
+| **Drag and drop** | Bring files in from Finder and drag them out to Finder or another compatible app. |
+| **Visual file tiles** | Image thumbnails and compact filenames help you find the right item. |
 | **Smart Actions** | Convert or resize images, create ZIPs, batch rename, and merge PDFs. |
-| **Local-first** | Your files stay on your Mac. Stash has no network features, analytics, or telemetry. |
+| **Local-first** | File processing happens on your Mac. Stash has no telemetry or account requirement. |
 
-## Getting started
+<div align="center">
+<img src="docs/assets/stash-populated-shelf.png" alt="Real populated floating shelf from the earlier design" width="470"><br>
+<sub>Floating shelf capture from v0.1.1; the notch workspace above shows v0.2.0.</sub>
+</div>
 
-### Install from GitHub Releases
+## Get started
 
-Download the current beta and earlier versions from the [Stash Releases page](https://github.com/harshitcodes1308/stash/releases). Open `Stash-x.y.z.dmg`, then drag `Stash.app` to the `Applications` shortcut inside the window.
+1. [Download `Stash-0.2.0.dmg`](https://github.com/harshitcodes1308/stash/releases/download/v0.2.0/Stash-0.2.0.dmg).
+2. Open the DMG and drag **Stash.app** onto the **Applications** shortcut.
+3. Open Stash from Applications and find its icon in the menu bar.
+4. Drag a file toward the notch, or press **Control + Option + Space** to open a shelf.
 
-> **Current status:** `v0.2.0` is an ad-hoc-signed, non-notarized public beta. It is suitable for testing, but macOS may show a Gatekeeper warning. A Developer ID-signed, notarized build will replace it when available.
+This beta is **not Developer ID signed or notarized**. macOS Gatekeeper may prevent it from opening normally. See the [release page](https://github.com/harshitcodes1308/stash/releases/tag/v0.2.0) for the current distribution status. A notarized build requires an Apple Developer ID and an approved notarization submission.
 
-### Build from source — available now
+### Everyday use
 
-Stash is currently available as a source-build beta for **macOS 13 or later**. From a checkout of this repository:
+- Use **Open Stash** at the top center to keep the notch shelf open; click again to close it.
+- Use the **+** control in the notch workspace or **New Stash** in the menu bar to create another tab.
+- Select files before opening **Smart Actions**. Drag a file tile out when you need it elsewhere.
+- Use the shelf pin control to retain a tab for the next launch. Regular floating shelves also support resizing.
+- Choose **Quit Stash** from the menu bar when finished.
+
+![Actual Stash Smart Actions menu](docs/assets/stash-smart-actions.png)
+
+## Smart Actions
+
+| Action | What it does | Original files |
+| --- | --- | --- |
+| Convert Images | Creates copies in another supported format | Unchanged |
+| Resize Images | Creates resized copies | Unchanged |
+| Create ZIP | Archives the selected items | Unchanged |
+| Batch Rename | Previews a rename plan and asks for confirmation | Renamed after confirmation |
+| Merge PDFs | Combines selected PDFs in your chosen order | Unchanged |
+
+Generated files are stored locally in `~/Library/Application Support/Stash/Generated Outputs` so they remain available after relaunching.
+
+## Privacy and safety
+
+Stash keeps file references in shelves rather than silently copying every source file. Smart Actions process files locally. Image, ZIP, and PDF actions create new output; Batch Rename changes originals only after you confirm the preview. Missing references appear as unavailable.
+
+## Build from source
+
+Stash supports macOS 13 or later. Install Xcode Command Line Tools if needed, then run from a checkout:
 
 ```zsh
-xcode-select --install # only if Xcode Command Line Tools are not installed
+xcode-select --install # only if the tools are not already installed
+./Tools/run-regressions.sh
 ./Packaging/package-release.sh
 open -n build/Stash.app
 ```
 
-Look for Stash in the menu bar, or press `Control` + `Option` + `Space` to create a tab in the notch workspace.
-
-The local packages, such as `build/Stash-0.2.0.dmg` and `build/Stash-0.2.0.zip`, are ad-hoc signed for development and testing; they are **not notarized**.
-
-## Smart Actions
-
-| Action | Result |
-| --- | --- |
-| **Convert Images** | Creates a new image in your chosen format; the original stays unchanged. |
-| **Resize Images** | Produces resized copies without altering source images. |
-| **Create ZIP** | Archives only the items you select, using safe relative paths. |
-| **Batch Rename** | Previews a collision-safe rename plan and asks for confirmation before changing originals. |
-| **Merge PDFs** | Combines selected, readable PDFs in the order you choose. |
-
-Generated files are retained locally in `~/Library/Application Support/Stash/Generated Outputs` so they remain usable after relaunching.
-
-## Privacy and safety
-
-- Stash keeps file references; it does not silently copy files into a shelf.
-- Image, ZIP, and PDF actions create new output files rather than overwrite originals.
-- Batch Rename is intentionally different: it renames selected originals only after you review and confirm the plan.
-- Missing file references are shown as unavailable instead of silently removed.
-
-## Building from source
-
-Run the project’s complete automated checks before packaging a build:
-
-```zsh
-./Tools/run-regressions.sh
-./Packaging/package-release.sh
-codesign --verify --deep --strict --verbose=2 build/Stash.app
-```
-
-See the [release guide](docs/release.md) for packaging, signing, and manual QA requirements.
+The package script creates `build/Stash-0.2.0.dmg` and its SHA-256 checksum file. See the [release guide](docs/release.md) for signing and verification details.
 
 ## Contributing
 
-Contributions are welcome. Please preserve the local-first model, avoid changing file sources unexpectedly, and run the checks above before opening a change. The project architecture is described in [docs/architecture.md](docs/architecture.md).
+Contributions are welcome. Please run the regression suite and keep file handling local. Start with the [architecture notes](docs/architecture.md) and [manual QA checklist](docs/manual-qa.md).
 
 ## License and release status
 
-Stash is licensed under the [MIT License](LICENSE).
-
-Version 0.2.0 is a public source-build beta. Its GitHub release assets are ad-hoc signed and not notarized. See the [manual QA checklist](docs/manual-qa.md) and [release guide](docs/release.md) for the remaining release work.
+Stash is licensed under the [MIT License](LICENSE). v0.2.0 is a public beta with an ad-hoc signature and no notarization; the [release notes](docs/release-notes-v0.2.0.md) describe what has been verified.
