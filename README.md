@@ -58,6 +58,8 @@ Notch Mode is on by default and can be changed from **Stash Settings** in the me
 
 This beta is **not Developer ID signed or notarized**. macOS Gatekeeper may prevent it from opening normally. See the [release page](https://github.com/harshitcodes1308/stash/releases/tag/v0.2.0) for the current distribution status. A notarized build requires an Apple Developer ID and an approved notarization submission.
 
+If macOS blocks Stash, first verify the DMG against its [SHA-256 checksum](https://github.com/harshitcodes1308/stash/releases/download/v0.2.0/Stash-0.2.0.dmg.sha256). If you trust this beta, try opening it once, then use **System Settings → Privacy & Security → Open Anyway** for Stash. This creates an exception for this app only; [Apple explains the steps and risks](https://support.apple.com/en-us/102445).
+
 ### Everyday use
 
 - Use **Open Stash** at the top center to keep the notch shelf open; click again to close it.
