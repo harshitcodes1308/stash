@@ -355,7 +355,13 @@ final class NotchShelfController: NSObject, ObservableObject {
             let isActive = isExpanded && displayID(for: screen) == activeScreen.flatMap(displayID(for:))
             target.view.isShelfOpen = isActive && heldOpen
             var frame = targetFrame(on: screen)
-            if isActive { frame.origin.y = frame.maxY - 22; frame.size.height = 22 }
+            if isActive {
+                // Only the visible pill sits above the shelf. The wider drag
+                // approach zone would otherwise steal clicks from the tabs.
+                frame.origin.x = frame.midX - 45
+                frame.origin.y = frame.maxY - 22
+                frame.size = NSSize(width: 90, height: 22)
+            }
             target.panel.setFrame(frame, display: true)
             target.panel.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
             target.panel.orderFrontRegardless()
@@ -427,14 +433,19 @@ private final class NotchDropTargetView: NSView {
 
     override func mouseEntered(with event: NSEvent) { hovered = true }
     override func mouseExited(with event: NSEvent) { hovered = false }
-    override func mouseDown(with event: NSEvent) { onToggle?() }
+    private var buttonFrame: NSRect { NSRect(x: bounds.midX - 45, y: bounds.maxY - 22, width: 90, height: 20) }
+
+    override func mouseDown(with event: NSEvent) {
+        guard buttonFrame.contains(convert(event.locationInWindow, from: nil)) else { return }
+        onToggle?()
+    }
     override func accessibilityPerformPress() -> Bool { onToggle?(); return true }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func draw(_ dirtyRect: NSRect) {
         if hovered || isShelfOpen {
-            let button = NSRect(x: bounds.midX - 45, y: bounds.maxY - 22, width: 90, height: 20)
+            let button = buttonFrame
             NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
             NSBezierPath(roundedRect: button, xRadius: 10, yRadius: 10).fill()
             let title = isShelfOpen ? "Close Stash" : "Open Stash"
