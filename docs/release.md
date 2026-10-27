@@ -39,7 +39,7 @@ export STASH_NOTARY_PROFILE='stash-notary'
 
 ## Publication blockers
 
-- Choose and add an open-source `LICENSE`; none currently exists.
+- The MIT `LICENSE` is present. Keep its copyright notice intact in distributed source archives.
 - Capture and review real product screenshots, including a populated shelf with image thumbnails.
 - Complete the GUI checklist in `docs/manual-qa.md`, including multiple displays and a real locked PDF.
 - Obtain Developer ID signing and notarization credentials.

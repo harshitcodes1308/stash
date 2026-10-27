@@ -1,10 +1,12 @@
 <div align="center">
 
+<img src="docs/assets/Stash-AppIcon-1024.png" alt="Stash app icon" width="112" height="112">
+
 # Stash
 
 ### Your files, right where you need them.
 
-Stash is a native macOS floating shelf for collecting files, folders, links, and text while you work — then moving or processing them without losing your place.
+Stash is a native macOS notch workspace for collecting files, folders, links, and text while you work — then moving or processing them without losing your place.
 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-native-F05138?logo=swift&logoColor=white)
@@ -15,11 +17,11 @@ Stash is a native macOS floating shelf for collecting files, folders, links, and
 
 ![A populated Stash shelf with image previews and files](docs/assets/stash-populated-shelf.png)
 
-<p align="center"><sub>One compact shelf for the files you are actively working with.</sub></p>
+<p align="center"><sub>Floating shelf capture from v0.1.1. The v0.2.0 notch workspace has not yet been photographed for this README.</sub></p>
 
 ## Why Stash?
 
-Your desktop and Downloads folder are not a workflow. Stash gives you small, independent shelves that stay handy while you collect files, prepare an attachment, organize a batch, or run a quick file action.
+Your desktop and Downloads folder are not a workflow. Stash keeps independent tabs beneath your MacBook's notch, ready for files, attachments, and quick file actions. Pin tabs you want to reopen next time.
 
 ## Drop it. Keep it. Do more.
 
@@ -31,7 +33,7 @@ Drag files, folders, links, or text onto a floating shelf from Finder or another
 
 ### Keep it.
 
-Open multiple shelves, resize them freely, and pin the ones that should return after a restart.
+Keep separate notch tabs for different tasks. Pin the ones that should return after a restart.
 
 ![Populated Stash shelf with image thumbnails](docs/assets/stash-populated-shelf.png)
 
@@ -45,9 +47,9 @@ Select files and use Smart Actions without interrupting the work in front of you
 
 | | |
 | --- | --- |
-| **Floating glass shelves** | Compact, resizable shelves that stay out of your way until you need them. |
+| **Notch workspace** | Drop files at the top center of your display and open the shelf when you need it. |
 | **Native drag-and-drop** | Bring items in from Finder and drag them back out to Finder, an attachment field, or another supported destination. |
-| **Multiple focused shelves** | Keep separate groups for a task, project, or handoff. |
+| **Multiple Stash tabs** | Keep separate groups for a task, project, or handoff; pin tabs to restore them. |
 | **Quick visual recognition** | Native image thumbnails and clean filename truncation make items easier to scan. |
 | **Smart Actions** | Convert or resize images, create ZIPs, batch rename, and merge PDFs. |
 | **Local-first** | Your files stay on your Mac. Stash has no network features, analytics, or telemetry. |
@@ -70,7 +72,7 @@ xcode-select --install # only if Xcode Command Line Tools are not installed
 open -n build/Stash.app
 ```
 
-Look for Stash in the menu bar, or press `Control` + `Option` + `Space` to open a shelf.
+Look for Stash in the menu bar, or press `Control` + `Option` + `Space` to create a tab in the notch workspace.
 
 The local packages, such as `build/Stash-0.2.0.dmg` and `build/Stash-0.2.0.zip`, are ad-hoc signed for development and testing; they are **not notarized**.
 

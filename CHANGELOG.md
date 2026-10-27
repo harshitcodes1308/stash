@@ -2,6 +2,7 @@
 
 ## 0.2.0 — Project FLOW beta
 
+- Added the official Stash application icon to the packaged macOS bundle and README branding.
 - Added a native multi-display top-center drag destination and reusable notch-anchored shelf.
 - Added bounded spring expansion, optional guarded automatic collapse, and Reduce Motion handling.
 - Added contextual Preview, Reveal in Finder, and Copy Path actions while retaining the existing Smart Action registry.
